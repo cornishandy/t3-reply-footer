@@ -1,0 +1,175 @@
+/* ---------- reply footer card ----------
+ * Round 11 (approved by Andy 19 Oct 2026).
+ * The footer agents write at the end of each reply (rules in RULES.md):
+ * `---`, a three-column plan table (status · step · who and when) whose header holds the verdict
+ * (<span itemprop="settle-yes|settle-no">), an optional <details> team rundown, then a small <sub> line.
+ * Only the table right after a reply's last <hr> changes, and only when it carries the verdict hook and has three
+ * columns (round 9's two-column footers, already in old threads, keep T3's own table look).
+ * Colours come from the active T3 theme (--info, --destructive, --success, --muted-foreground), so every theme works.
+ */
+
+.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) {
+  --t3x-run: var(--info, #2563eb);
+  --t3x-bad: var(--destructive, #dc2626);
+  --t3x-ok: var(--success, #15803d);
+  --t3x-line: color-mix(in srgb, var(--contrast-border) 70%, transparent);
+  width: fit-content;
+  min-width: min(100%, 34rem);
+  max-width: 100%;
+  margin-bottom: 0;
+  border: 1px solid var(--contrast-border);
+  border-radius: var(--radius, .625rem);
+  background: var(--card);
+  overflow: hidden;
+
+  & > :not(:first-child) { display: none; }
+  /* each row is a line of its own: status · step · who and when. Who-and-when stays on one line at the right while it
+   * fits beside a step of at least 18rem; otherwise it drops under the step, still at the right, so the step never
+   * gets squeezed and rows don't grow tall from a wrapped right column (Andy, 20 Oct 2026: "fix the column/row
+   * resizing", "Still off"). Status labels share one width per card, wide enough for the longest label it uses. */
+  --t3x-lw: calc(5.1em + 1rem);
+  &:has(tbody [itemprop~="saved"]) { --t3x-lw: calc(6.3em + 1rem); }
+  /* "Decided for you" is the last row and has no who-and-when (:has() can't nest, so this is how it is found) */
+  &:has(tbody tr:last-child > td:last-child:empty) { --t3x-lw: calc(7.9em + 1rem); }
+  & table { display: block; width: 100%; min-width: 0; font-size: .8125rem; line-height: 1.5; font-variant-numeric: tabular-nums; }
+  & tbody { display: block; }
+  & tbody tr { display: flex; flex-wrap: wrap; align-items: flex-start; }
+  & :is(th, td) {
+    padding: .14rem .75rem;
+    vertical-align: top;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+    overflow-wrap: break-word;
+    border: 0;
+  }
+  /* status and who/when: small, quiet, fitted to their words; times right-aligned in even-width figures */
+  & td:first-child, & td:last-child {
+    font-size: .75rem;
+    line-height: 1.25rem;
+    color: var(--muted-foreground);
+  }
+  & td:first-child { flex: 0 0 auto; box-sizing: border-box; min-width: var(--t3x-lw); padding-right: .25rem; white-space: nowrap; }
+  & td:nth-child(2) { flex: 1 1 min(18rem, 55%); min-width: 0; line-height: 1.25rem; overflow-wrap: anywhere; }
+  & td:nth-child(2) :is(code, a) { white-space: normal; overflow-wrap: anywhere; }
+  /* where supported, a short step claims only its own width (up to 18rem), so who-and-when can sit beside it */
+  @supports (width: calc-size(max-content, size)) {
+    & td:nth-child(2) { flex: 1 1 auto; width: calc-size(max-content, min(size, 18rem)); }
+  }
+  & td:last-child { flex: 0 1 auto; margin-left: auto; text-align: right; padding-left: 1.25rem; text-wrap: balance; }
+  & td:last-child:empty { display: none; }
+  /* groups are separated by space, not lines (a margin, so a tinted row's tint stays tight); rows inside a group sit close */
+  & tbody tr:has(> td:first-child:not(:empty)) { margin-top: .42rem; }
+  & tbody tr:is(:has([itemprop~="running"]), :has([itemprop~="saved"])) { padding-block: .2rem; }
+  & tbody tr:first-child { padding-top: .41rem; }
+  & tbody tr:last-child { padding-bottom: .46rem; }
+
+  /* done: crossed out in the text's own (quiet) colour */
+  & tbody tr:has(del) td:nth-child(2) { color: var(--muted-foreground); }
+  & td del { text-decoration-line: line-through; text-decoration-thickness: 1.5px; text-decoration-color: currentColor; }
+
+  /* running: the one accent, a bar and tint that follow the theme, a pulsing dot */
+  & tbody tr:has([itemprop~="running"]) { background: color-mix(in srgb, var(--t3x-run) 10%, transparent); box-shadow: inset 2px 0 0 var(--t3x-run); }
+  & tbody tr:has([itemprop~="running"]) :is(td:first-child, td:last-child) { color: color-mix(in srgb, var(--t3x-run) 68%, var(--foreground)); }
+  & [itemprop~="running"]::before {
+    content: "";
+    display: inline-block;
+    width: .45em;
+    height: .45em;
+    margin-right: .5em;
+    border-radius: 50%;
+    background: var(--t3x-run);
+    vertical-align: .1em;
+    animation: t3x-footer-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* needs you: a neutral bar and a faint tint, the label in full strength; the words to act on are underlined */
+  & tbody tr:has(> td:nth-child(2) > strong:first-child) { background: color-mix(in srgb, var(--foreground) 5%, transparent); box-shadow: inset 2px 0 0 var(--foreground); padding-block: .36rem; }
+  & tbody tr:has(> td:nth-child(2) > strong:first-child) td:first-child { color: var(--foreground); }
+  /* decided for you: quiet, still readable */
+  & tbody tr:has(> td:last-child:empty):not(:has(strong, del, [itemprop])) td:nth-child(2) { color: var(--muted-foreground); }
+  & td ins { text-decoration-line: underline; text-decoration-thickness: .08em; text-underline-offset: .2em; text-decoration-skip-ink: auto; }
+  & [itemprop~="failed"] { color: color-mix(in srgb, var(--t3x-bad) 75%, var(--foreground)); }
+  /* a change made to save usage (rule "Saved usage"): a warning-coloured bar and faint tint, text at full strength */
+  & tbody tr:has([itemprop~="saved"]) { background: color-mix(in srgb, var(--warning, #f59e0b) 9%, transparent); box-shadow: inset 2px 0 0 var(--warning, #f59e0b); }
+  & tbody tr:has([itemprop~="saved"]) td:first-child { color: var(--foreground); }
+  & tbody tr:has([itemprop~="saved"]) td:last-child { color: color-mix(in srgb, var(--muted-foreground) 55%, var(--foreground)); }
+  /* time over its plan (rule "Honest time"): the theme's warning text colour */
+  & [itemprop~="over"] { color: var(--warning-foreground, #b45309); }
+
+  /* header as a caption: verdict, reason, then progress and ETA on the right */
+  & thead {
+    display: block;
+    border-bottom: 1px solid var(--contrast-border);
+    background: color-mix(in srgb, var(--foreground) 4%, transparent);
+    & tr { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .9rem; row-gap: .1rem; padding: .55rem .75rem; }
+    & th { display: block; width: auto; padding: 0; font-size: .875rem; font-weight: 500; white-space: nowrap; }
+    & th:first-child { font-size: .9375rem; font-weight: 650; }
+    & th:last-child { margin-left: auto; font-size: .75rem; font-weight: 450; color: color-mix(in srgb, var(--muted-foreground) 80%, var(--foreground)); }
+    & [itemprop~="settle-no"]  { color: color-mix(in srgb, var(--t3x-bad) 75%, var(--foreground)); }
+    & [itemprop~="settle-yes"] { color: color-mix(in srgb, var(--t3x-ok) 55%, var(--foreground)); }
+  }
+}
+@keyframes t3x-footer-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) [itemprop~="running"]::before { animation: none; } }
+
+/* the team rundown under the card. T3 draws a reply's <details> as its own collapsible: a wrapper <div>, then
+ * [data-markdown-details] holding a trigger button ([data-markdown-details-summary], chevron + summary text) and a panel
+ * whose [data-markdown-details-content] holds the table. The ✦ panel's "Footer team list" switch sets
+ * html[data-t3x-footer-team]: always-show (can't fold), start-open (default), start-folded (the add-ons fold it once), always-hide. */
+.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) {
+  margin: .45rem 0 0;
+  border: 0;
+  font-size: .75rem;
+  color: var(--muted-foreground);
+  & [data-markdown-details-summary] {
+    width: fit-content;
+    gap: .3rem;
+    padding: .1rem 0;
+    font-size: .75rem;
+    line-height: 1.25rem;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+  & [data-markdown-details-summary] > svg { width: .875rem; height: .875rem; }
+  & [data-markdown-details-content] { padding: .15rem 0 .1rem 1.15rem; color: var(--muted-foreground); }
+  & .chat-markdown-table-container { margin: 0; width: fit-content; max-width: 100%; }
+  & .chat-markdown-table-container > :not(:first-child) { display: none; }
+  & table { min-width: 0; font-size: .75rem; }
+  & :is(th, td) { padding: .15rem 1rem .15rem 0; border: 0; background: transparent; white-space: normal; max-width: none; overflow: visible; text-overflow: clip; font-weight: 400; color: var(--muted-foreground); }
+  & :is(th, td):nth-child(2) { color: var(--foreground); white-space: nowrap; }
+  & em { font-style: normal; color: var(--muted-foreground); }
+  & [itemprop~="failed"] { color: color-mix(in srgb, var(--destructive, #dc2626) 85%, var(--foreground)); }
+}
+html[data-t3x-footer-team="always-hide"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) { display: none; }
+html[data-t3x-footer-team="always-show"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) [data-markdown-details-summary] { pointer-events: none; cursor: default; }
+html[data-t3x-footer-team="always-show"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) [data-markdown-details-summary] > svg { display: none; }
+
+/* the small line, right after the card or after the rundown (a bare <sub> when the blank line before it was left out) */
+:is(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)),
+    .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]))
+  + p:has(> sub:only-child) {
+  margin: .35rem 0 0;
+  line-height: 1.35;
+  & > sub { font-size: 11px; vertical-align: baseline; color: var(--muted-foreground); }
+}
+:is(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)),
+    .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]))
+  + sub {
+  display: block;
+  margin: .35rem 0 0;
+  line-height: 1.35;
+  font-size: 11px;
+  vertical-align: baseline;
+  color: var(--muted-foreground);
+}
+
+/* phones: who and when drop under the step, left-aligned with it */
+@media (max-width: 480px) {
+  .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) {
+    & td:first-child { flex-basis: 4.9rem; min-width: 0; white-space: normal; }
+    & td:nth-child(2) { flex: 1 1 0; }
+    & td:last-child { flex: 1 0 100%; margin-left: 0; padding: 0 .75rem .2rem calc(4.9rem + .75rem); text-align: left; text-wrap: wrap; line-height: 1.4; }
+  }
+}
