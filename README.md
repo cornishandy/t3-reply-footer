@@ -1,5 +1,7 @@
 # T3 reply footer
 
+**Personal experiment.** I'm not a professional developer; I use T3 Code on my Mac for personal movie and Twitter projects. I made this to suit my own workflow. It isn't an official T3 Code project or a supported product.
+
 A status card at the end of every AI agent reply in [T3 Code](https://github.com/pingdotgg/t3code). The agent writes it as plain Markdown, and a small stylesheet in T3 draws it as a card. It shows:
 
 - **Verdict:** whether the thread can be settled (🟢 Safe to settle / 🔴 Don't settle yet), with a short reason and progress.
