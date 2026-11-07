@@ -89,7 +89,8 @@ const clear = (c) => c === "rgba(0, 0, 0, 0)" || c === "transparent";
 // a row's tint sits on its cells (desktop grid) or on the row itself (phones)
 const tinted = (tr) => !clear(cs(tr).backgroundColor) || !clear(cs(tr.children[1]).backgroundColor);
 const H = location.hash;
-// each section is a chat lane (T3's chat-lane container); the footer's narrow layout and the table fitting follow its width
+// each section is a chat lane; the footer's narrow layout follows the width of the reply (footer.css gives a reply that
+// ends in a footer card its own t3x-lane container, since T3 no longer has one)
 const laneOf = (sec) => sec.getBoundingClientRect().width;
 for (const vp of document.querySelectorAll("[data-slot=scroll-area-viewport]")) if (vp.scrollWidth > vp.clientWidth + 1) {
   const bar = document.createElement("div"); bar.dataset.slot = "scroll-area-scrollbar"; bar.dataset.orientation = "horizontal"; bar.className = "opacity-0";
@@ -269,7 +270,7 @@ const pre = document.createElement("pre"); pre.id = "results"; pre.textContent =
 const page = (fold) => `<!doctype html><html><head><meta charset="utf-8"><title>footer test</title>
 <script>if (location.hash.includes("dark")) document.documentElement.classList.add("dark");</script>
 <style>${fs.readFileSync(t3cssPath, "utf8")}</style>
-<style>body{background:var(--background);color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0;padding:16px} section{max-width:var(--lane,720px);margin:0 auto 28px;container:chat-lane/inline-size} h2{font:600 11px/1 ui-monospace,monospace;color:var(--muted-foreground);margin:0 0 6px}
+<style>body{background:var(--background);color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0;padding:16px} section{max-width:var(--lane,720px);margin:0 auto 28px;} h2{font:600 11px/1 ui-monospace,monospace;color:var(--muted-foreground);margin:0 0 6px}
 /* T3's ScrollArea (scroll-area component, Base UI): utility classes the subset lacks */
 @layer utilities{.relative{position:relative}.max-w-full{max-width:100%}.opacity-0{opacity:0}
 [data-slot=scroll-area-viewport]{height:100%;overflow:auto;overscroll-behavior:contain}
