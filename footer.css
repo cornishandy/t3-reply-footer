@@ -203,7 +203,7 @@ html[data-t3x-footer-team="always-show"] .chat-markdown > hr:last-of-type + .cha
   }
 }
 
-/* ---------- a busy card fills a wide lane ----------
+/* a busy card fills a wide lane:
  * In a lane of 40rem or more, a card with five or more rows widens to the lane (up to 52rem) and its steps stretch,
  * so long rows (Usage, Time, Needs you) wrap less instead of leaving the pane's right side empty (Andy, 7 Nov 2026:
  * "when window is wider than the footer table, please have it expand to fit, within reason"). Shorter cards keep
