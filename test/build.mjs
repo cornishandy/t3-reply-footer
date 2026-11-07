@@ -170,7 +170,7 @@ for (const sec of document.querySelectorAll("section")) {
   if (lane >= 640) {
     const cw = card.getBoundingClientRect().width, rows = card.querySelectorAll("tbody tr").length;
     if (rows >= 5) log(Math.abs(cw - Math.min(lane, 832)) <= 1, id + ": busy card fills the wide lane (" + Math.round(cw) + " in " + Math.round(lane) + ")");
-    else log(cw < lane - 40, id + ": short card fits its words (" + Math.round(cw) + " in " + Math.round(lane) + ")");
+    else log(cw < Math.min(lane, 832) - 1, id + ": short card fits its words (" + Math.round(cw) + " in " + Math.round(lane) + ")");
   }
 
   const verdict = card.querySelector("thead [itemprop^=settle-]");
