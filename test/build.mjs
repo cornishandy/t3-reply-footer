@@ -35,13 +35,21 @@ const wrapDetails = (html, folded) => {
   const footerStart = html.lastIndexOf("<hr>");
   const footer = html.slice(footerStart).match(/^<hr>\s*<div class="chat-markdown-table-container"(?:(?!<hr>)[\s\S])*?<span itemprop="settle-(?:yes|no)"[\s\S]*?<\/table><\/div><\/div><div[^>]*data-ctl>[\s\S]*?<\/div><\/div>\s*(?=<details)/);
   const teamOffset = footer ? footerStart + footer[0].length : -1;
-  return html.replace(/<details( open(?:="")?)?>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g, (_, open, summary, body, offset) => {
-    const isOpen = !!open && !(folded && offset === teamOffset);
-    return `<div class="my-2 border-y border-border/60"><div data-slot="collapsible" data-markdown-details="" data-markdown-details-open="${isOpen}">` +
-      `<button type="button" data-slot="collapsible-trigger" class="cursor-pointer flex w-full items-center gap-2 py-2 text-left text-sm font-medium text-foreground" data-markdown-details-summary=""${isOpen ? ' data-panel-open=""' : ""} aria-expanded="${isOpen}">${CHEVRON(isOpen)}<span>${summary}</span></button>` +
-      (isOpen ? `<div data-slot="collapsible-panel" class="overflow-hidden" data-open=""><div class="pb-3 ps-6" data-markdown-details-content="">${body}</div></div>` : "") +
-      `</div></div>`;
-  });
+  // innermost first, so a fold inside a fold (a Needs you item holding its advice) works; the team fold holds no
+  // fold, so it is replaced in the first pass, where offsets still match teamOffset
+  let pass = 0, prev;
+  do {
+    prev = html;
+    const first = pass === 0;
+    html = html.replace(/<details( open(?:="")?)?>\s*<summary>((?:(?!<details|<summary)[\s\S])*?)<\/summary>((?:(?!<details)[\s\S])*?)<\/details>/g, (_, open, summary, body, offset) => {
+      const isOpen = !!open && !(folded && first && offset === teamOffset);
+      return `<div class="my-2 border-y border-border/60"><div data-slot="collapsible" data-markdown-details="" data-markdown-details-open="${isOpen}">` +
+        `<button type="button" data-slot="collapsible-trigger" class="cursor-pointer flex w-full items-center gap-2 py-2 text-left text-sm font-medium text-foreground" data-markdown-details-summary=""${isOpen ? ' data-panel-open=""' : ""} aria-expanded="${isOpen}">${CHEVRON(isOpen)}<span>${summary}</span></button>` +
+        (isOpen ? `<div data-slot="collapsible-panel" class="overflow-hidden" data-open=""><div class="pb-3 ps-6" data-markdown-details-content="">${body}</div></div>` : "") +
+        `</div></div>`;
+    });
+  } while (html !== prev && ++pass < 5);
+  return html;
 };
 
 const section = fs.readFileSync(sectionPath, "utf8");
@@ -52,6 +60,10 @@ const body = "Here is the reply body, with a table of its own:\n\n| Plan | Cost 
 const R9 = fs.readFileSync(new URL("./fixtures/round9-busy.md", import.meta.url), "utf8");
 // a real Sol footer (20 Oct 2026) whose long who-and-when cells squeezed the step column in a table layout
 const LONGMETA = fs.readFileSync(new URL("./fixtures/long-meta.md", import.meta.url), "utf8");
+// the Thread health watch's footer (7 Nov 2026 shape, made-up items): each Needs you item is a fold in the step cell,
+// some holding a nested advice fold; WATCH_OPEN opens item 2 and its advice
+const WATCH = fs.readFileSync(new URL("./fixtures/watch-folds.md", import.meta.url), "utf8");
+const WATCH_OPEN = WATCH.replace("<details><summary>**2.", "<details open><summary>**2.").replace("<details><summary>Grok + Gemini both pick: A", "<details open><summary>Grok + Gemini both pick: A");
 const LONG = "a".repeat(220);
 const longStep = `---\n\n| <span itemprop="settle-no">🔴 Don't settle yet</span> | review running | 0 of 1 done · ETA 11:55 PM |\n|---|---|--:|\n| Running | <span itemprop="running">Check \`${LONG}\` then [open this page](https://example.invalid/${LONG})</span> | Sol · 11:40–11:55 PM · planned 15 |\n| Needs you | **1. Inspect** · <ins>Read</ins> \`${LONG}\`. Blocks nothing. |   |\n\n<sub>Decided for you -- · Skills -- · Written by Claude Opus 5.5 xhigh · Claude usage: protecting · 1.0 of 9.8 points today</sub>\n`;
 // the rundown followed by <sub> with no blank line between: <sub> arrives bare, not in a paragraph
@@ -69,6 +81,8 @@ const cases = [
   { id: "long-meta", kind: "footer", team: true, md: body + LONGMETA },
   { id: "direct-sub", kind: "footer", timed: true, team: true, md: body + directSub },
   // a round-9 footer already in an old thread (two columns): T3's own table look, nothing restyled
+  { id: "watch-folds", kind: "footer", folds: true, md: body + WATCH },
+  { id: "watch-folds-open", kind: "footer", folds: true, md: body + WATCH_OPEN },
   { id: "round9", kind: "plain", md: body + R9 },
   // a body hr followed by a table, then the real footer: only the footer's tables change
   { id: "two-hrs", kind: "footer", timed: true, team: true, md: "Intro.\n\n---\n\n| Body | Table |\n|---|---|\n| after an earlier hr | stays plain |\n\nMore body.\n\n" + nextTurn },
@@ -84,7 +98,7 @@ cases.push({ id: "user-paste", kind: "user", md: cases[0].md });
 const row = (c, inner) => c.kind === "user"
   ? `<div data-message-role="user" style="display:flex;justify-content:flex-end"><div data-bubble style="width:fit-content;max-width:80%">${inner}</div></div>`
   : `<div data-message-role="assistant">${inner}</div>`;
-const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}><h2>${c.id}</h2>${row(c, `<div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div>`)}</section>`).join("\n");
+const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}${c.folds ? " data-folds" : ""}><h2>${c.id}</h2>${row(c, `<div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div>`)}</section>`).join("\n");
 
 const checks = String.raw`
 let fails = 0; const out = []; const log = (ok, msg) => { if (!ok) fails++; out.push((ok ? "PASS " : "FAIL ") + msg); };
@@ -161,7 +175,18 @@ for (const sec of document.querySelectorAll("section")) {
     log(trigger.getAttribute("aria-expanded") === String(open) && trigger.hasAttribute("data-panel-open") === open && !!d.querySelector('[data-slot="collapsible-panel"]') === open, id + ": disclosure state matches trigger and panel");
     const chevron = trigger.querySelector("svg");
     log(chevron.style.transform === (open ? "rotate(90deg)" : "rotate(0deg)") && (!chevron.getBoundingClientRect().width || cs(chevron).transform === (open ? "matrix(0, 1, -1, 0, 0, 0)" : "matrix(1, 0, 0, 1, 0, 0)")), id + ": chevron points " + (open ? "down when open" : "right when closed"));
-    if (!rundown?.contains(d)) {
+    if (card?.contains(d)) {
+      // a folded Needs you item in the card: one tight line, no T3 fold border, margin or padding, the card's own type
+      const wrap = d.parentElement, nested = !!d.parentElement.closest("[data-markdown-details-content]");
+      log(cs(wrap).borderTopWidth === "0px" && cs(wrap).borderBottomWidth === "0px" && (nested || cs(wrap).marginTop === "0px"), id + ": card fold has no border or margin");
+      log(parseFloat(cs(trigger).paddingTop) === 0 && parseFloat(cs(trigger).fontSize) <= 13 && +cs(trigger).fontWeight < 600, id + ": card fold summary is compact and regular");
+      if (!nested && !open) {
+        const tr = d.closest("tr"), lines = Math.round(trigger.querySelector("span").getBoundingClientRect().height / 20);
+        log(tinted(tr) && cs(tr).boxShadow !== "none", id + ": folded Needs you row keeps its band and bar");
+        log(lane < 480 || lines === 1, id + ": folded item is one line (" + lines + ")");
+        log(tr.getBoundingClientRect().height <= lines * 20 + 6, id + ": folded row is tight (" + Math.round(tr.getBoundingClientRect().height) + "px)");
+      }
+    } else if (!rundown?.contains(d)) {
       log(open && !!d.querySelector('[data-slot="collapsible-panel"]'), id + ": body details stays open even when footer team is folded");
       log(cs(d.parentElement).borderTopWidth === "1px" && parseFloat(cs(trigger).fontSize) === 14, id + ": a body <details> keeps T3's look");
     } else log(open === !document.body.hasAttribute("data-folded"), id + ": only footer team follows fixture fold state");
@@ -211,6 +236,13 @@ for (const sec of document.querySelectorAll("section")) {
   for (const s of card.querySelectorAll("tbody strong")) {
     log(+cs(s).fontWeight >= 600, id + ": item topic bold (" + s.textContent + ")");
     log(tinted(s.closest("tr")), id + ": needs-you row tinted");
+  }
+  if (sec.hasAttribute("data-folds")) {
+    const first = rows.find((tr) => tr.children[0].textContent.trim() === "Needs you");
+    log(!!first && cs(first.children[0]).color === cs(first.children[1].querySelector("strong")).color, id + ": Needs you label at full strength");
+    const items = rows.filter((tr) => tr.querySelector(":scope > td:nth-child(2) > div > [data-markdown-details]"));
+    const isClosed = (tr) => !tr.querySelector("[data-markdown-details-open=true]");
+    log(items.every((tr, i) => i === 0 || !isClosed(tr) || !isClosed(items[i - 1]) || tr.getBoundingClientRect().top - items[i - 1].getBoundingClientRect().bottom <= 1), id + ": folded items sit close together");
   }
   for (const sv of card.querySelectorAll("tbody [itemprop~=saved]")) {
     const tr = sv.closest("tr");
