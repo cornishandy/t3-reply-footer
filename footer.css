@@ -117,7 +117,8 @@
 /* the team rundown under the card. T3 draws a reply's <details> as its own collapsible: a wrapper <div>, then
  * [data-markdown-details] holding a trigger button ([data-markdown-details-summary], chevron + summary text) and a panel
  * whose [data-markdown-details-content] holds the table. The ✦ panel's "Footer team list" switch sets
- * html[data-t3x-footer-team]: always-show (can't fold), start-open (default), start-folded (the add-ons fold it once), always-hide. */
+ * html[data-t3x-footer-team]: always-show (CSS blocks pointer clicks and hides the chevron), start-open (default),
+ * start-folded (the external add-on folds it once), always-hide. The add-on must keep always-show open, including against keyboard toggling. */
 .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) {
   margin: .45rem 0 0;
   border: 0;

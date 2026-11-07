@@ -6,8 +6,13 @@
 # chrome-headless-shell, then Google Chrome.
 set -euo pipefail
 D="$(cd "$(dirname "$0")/.." && pwd)"; T="$D/test"
-CH="${CHROME:-$(ls -d "$HOME"/.t3/tools/chrome-headless-shell/*/*/chrome-headless-shell 2>/dev/null | tail -1 || true)}"
-[ -x "$CH" ] || CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CH="${CHROME:-}"
+if [ -z "$CH" ]; then
+  for candidate in "$HOME"/.t3/tools/chrome-headless-shell/*/*/chrome-headless-shell; do
+    [ ! -x "$candidate" ] || CH="$candidate"
+  done
+  [ -n "$CH" ] || CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+fi
 [ -d "$T/node_modules" ] || npm ci --prefix "$T" --silent
 node "$T/build.mjs" "$D/RULES.md" "$T/t3-subset.css" "$D/footer.css" "$T/footer-test.html" >/dev/null
 status=0
@@ -17,6 +22,11 @@ for v in "footer-test light 760" "footer-test dark 760" "footer-test light 390" 
   out="$("$CH" --headless --disable-gpu --hide-scrollbars --window-size="$3,3000" --virtual-time-budget=3000 --dump-dom "file://$T/$1.html#$2" 2>/dev/null \
     | python3 -I -c 'import sys,re,html; m=re.search(r"<pre id=\"results\"[^>]*>(.*?)</pre>", sys.stdin.read(), re.S); print(html.unescape(m.group(1)) if m else "NO RESULTS")')"
   echo "$1 $2 $3: $(echo "$out" | grep -E 'PASSED|FAILED|NO RESULTS' | head -1)"
+  actual_width="$(echo "$out" | sed -nE 's/^(ALL PASSED|[0-9]+ FAILED) \((dark|light), ([0-9]+)px.*$/\3/p')"
+  if [ "$actual_width" != "$3" ]; then
+    echo "FAIL viewport: requested $3 px, reported ${actual_width:-unknown} px"
+    status=1
+  fi
   echo "$out" | grep -E '^FAIL' || true
   echo "$out" | grep -q 'ALL PASSED' || status=1
   if [ "${SHOTS:-}" = 1 ]; then

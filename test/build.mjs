@@ -209,7 +209,7 @@ for (const sec of document.querySelectorAll("section")) {
     else {
       log(cs(rundown).borderTopWidth === "0px" && parseFloat(cs(trigger).fontSize) === 12, id + ": team summary small, no rules");
       log(+cs(trigger).fontWeight === 400, id + ": team summary not bold");
-      if (team === "always-show") log(cs(trigger).pointerEvents === "none" && cs(trigger.querySelector("svg")).display === "none", id + ": always-show can't fold");
+      if (team === "always-show") log(cs(trigger).pointerEvents === "none" && cs(trigger.querySelector("svg")).display === "none", id + ": always-show blocks pointer clicks and hides the chevron");
       else log(cs(trigger).pointerEvents !== "none" && cs(trigger.querySelector("svg")).display !== "none", id + ": team list trigger stays clickable (T3 folds it)");
       const cells = [...rundown.querySelectorAll("th, td")];
       if (cells.length) {

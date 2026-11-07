@@ -43,7 +43,7 @@ Hooks: `itemprop` = `settle-yes` · `settle-no` · `running` · `failed` · `ove
 1. Add `RULES.md` to your agent instructions file (for example `~/.claude/CLAUDE.md`). Before you do, change the model names, usage tools (`claude-tier`, `lab-usage`) and the person's name to your own setup.
 2. Load `footer.css` into T3 Code. T3 has no built-in user stylesheet yet. The author injects it with a small local add-on loader; any way of adding a `<style>` to T3's window works.
 
-The team-list switch is optional: set `data-t3x-footer-team` on `<html>` to `always-show`, `start-folded` or `always-hide`. With nothing set, it starts open.
+The team-list switch is optional: set `data-t3x-footer-team` on `<html>` to `always-show`, `start-folded` or `always-hide`. With nothing set, it starts open. CSS hides `always-hide`; for `always-show`, it only blocks pointer clicks on the trigger and hides the chevron. An external add-on runtime must implement `start-folded` and keep `always-show` open, including preventing keyboard toggling; CSS alone does not disable the button.
 
 ## Test
 
