@@ -34,7 +34,7 @@ The agent ends each reply with `---`, then a three-column Markdown table (status
 
 T3's sanitizer keeps `itemprop`, `<ins>`, `<del>`, `<sub>` and `<details>`, so these act as styling hooks without any scripts. The CSS only touches the table right after a reply's last `<hr>`, and only when that table has the verdict hook and three columns. Every other table keeps T3's normal look.
 
-Without the stylesheet, the footer is still a readable Markdown table (see `docs/screenshots/footer-test-light-nocss-360.png`).
+Without footer.css, T3 uses its normal Markdown table layout. Long cells may be truncated and narrow views may need horizontal scrolling; load footer.css for the full card layout.
 
 Hooks: `itemprop` = `settle-yes` · `settle-no` · `running` · `failed` · `over` · `saved`; `<ins>` marks words the human acts on; `~~…~~` marks finished steps and answered items.
 

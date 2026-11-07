@@ -26,14 +26,20 @@ const wrapTables = (html) => html.replace(/<table>([\s\S]*?)<\/table>/g, (_, t) 
   `<div class="mt-0.5 flex items-center justify-between select-none" data-ctl><span></span><button type="button" aria-label="Copy table">⧉</button></div></div>`);
 // T3's details component (bundle function TO, Base UI collapsible): a wrapper div, the root, a trigger button with a
 // chevron and the summary text, and a panel that is unmounted while closed.
-const CHEVRON = `<svg class="size-4 shrink-0 text-muted-foreground transition-transform" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>`;
-const wrapDetails = (html, folded) => html.replace(/<details( open(?:="")?)?>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g, (_, open, summary, body) => {
-  const isOpen = !!open && !folded;
-  return `<div class="my-2 border-y border-border/60"><div data-slot="collapsible" data-markdown-details="" data-markdown-details-open="${isOpen}">` +
-    `<button type="button" data-slot="collapsible-trigger" class="cursor-pointer flex w-full items-center gap-2 py-2 text-left text-sm font-medium text-foreground" data-markdown-details-summary=""${isOpen ? ' data-panel-open=""' : ""} aria-expanded="${isOpen}">${CHEVRON}<span>${summary}</span></button>` +
-    (isOpen ? `<div data-slot="collapsible-panel" class="overflow-hidden" data-open=""><div class="pb-3 ps-6" data-markdown-details-content="">${body}</div></div>` : "") +
-    `</div></div>`;
-});
+const CHEVRON = (open) => `<svg style="transform: rotate(${open ? 90 : 0}deg)" class="size-4 shrink-0 text-muted-foreground transition-transform" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>`;
+const wrapDetails = (html, folded) => {
+  // Only the disclosure directly after the last hr's verdict table is the footer team.
+  const footerStart = html.lastIndexOf("<hr>");
+  const footer = html.slice(footerStart).match(/^<hr>\s*<div class="chat-markdown-table-container"(?:(?!<hr>)[\s\S])*?<span itemprop="settle-(?:yes|no)"[\s\S]*?<\/table><\/div><\/div><div[^>]*data-ctl>[\s\S]*?<\/div><\/div>\s*(?=<details)/);
+  const teamOffset = footer ? footerStart + footer[0].length : -1;
+  return html.replace(/<details( open(?:="")?)?>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g, (_, open, summary, body, offset) => {
+    const isOpen = !!open && !(folded && offset === teamOffset);
+    return `<div class="my-2 border-y border-border/60"><div data-slot="collapsible" data-markdown-details="" data-markdown-details-open="${isOpen}">` +
+      `<button type="button" data-slot="collapsible-trigger" class="cursor-pointer flex w-full items-center gap-2 py-2 text-left text-sm font-medium text-foreground" data-markdown-details-summary=""${isOpen ? ' data-panel-open=""' : ""} aria-expanded="${isOpen}">${CHEVRON(isOpen)}<span>${summary}</span></button>` +
+      (isOpen ? `<div data-slot="collapsible-panel" class="overflow-hidden" data-open=""><div class="pb-3 ps-6" data-markdown-details-content="">${body}</div></div>` : "") +
+      `</div></div>`;
+  });
+};
 
 const section = fs.readFileSync(sectionPath, "utf8");
 const examples = [...section.matchAll(/```\n([\s\S]*?)```/g)].map((m) => m[1]).filter((b) => b.startsWith("---"));
@@ -49,7 +55,7 @@ const longStep = `---\n\n| <span itemprop="settle-no">🔴 Don't settle yet</spa
 const directSub = nextTurn.replace("</details>\n\n<sub>", "</details>\n<sub>");
 const cases = [
   { id: "quiet", kind: "footer", md: body + quiet },
-  { id: "busy", kind: "footer", timed: true, team: true, md: body + busy },
+  { id: "busy", kind: "footer", timed: true, team: true, md: body + "<details open><summary>Body details beside footer</summary>\n\nBody disclosure stays open.\n\n</details>\n\n" + busy },
   { id: "next-turn", kind: "footer", timed: true, team: true, md: body + nextTurn },
   { id: "long-token", kind: "footer", md: body + longStep },
   { id: "long-meta", kind: "footer", team: true, md: body + LONGMETA },
@@ -112,8 +118,17 @@ for (const sec of document.querySelectorAll("section")) {
     log(cs(o.querySelector("td")).whiteSpace === "nowrap", id + ": non-footer cells keep T3's one-line ellipsis");
     log(cs(o).borderTopWidth === "0px", id + ": non-footer table gets no card border");
   }
-  for (const d of md.querySelectorAll("[data-markdown-details]")) if (!rundown?.contains(d))
-    log(cs(d.parentElement).borderTopWidth === "1px" && parseFloat(cs(d.querySelector("[data-markdown-details-summary]")).fontSize) === 14, id + ": a body <details> keeps T3's look");
+  for (const d of md.querySelectorAll("[data-markdown-details]")) {
+    const trigger = d.querySelector("[data-markdown-details-summary]");
+    const open = d.dataset.markdownDetailsOpen === "true";
+    log(trigger.getAttribute("aria-expanded") === String(open) && trigger.hasAttribute("data-panel-open") === open && !!d.querySelector('[data-slot="collapsible-panel"]') === open, id + ": disclosure state matches trigger and panel");
+    const chevron = trigger.querySelector("svg");
+    log(chevron.style.transform === (open ? "rotate(90deg)" : "rotate(0deg)") && (!chevron.getBoundingClientRect().width || cs(chevron).transform === (open ? "matrix(0, 1, -1, 0, 0, 0)" : "matrix(1, 0, 0, 1, 0, 0)")), id + ": chevron points " + (open ? "down when open" : "right when closed"));
+    if (!rundown?.contains(d)) {
+      log(open && !!d.querySelector('[data-slot="collapsible-panel"]'), id + ": body details stays open even when footer team is folded");
+      log(cs(d.parentElement).borderTopWidth === "1px" && parseFloat(cs(trigger).fontSize) === 14, id + ": a body <details> keeps T3's look");
+    } else log(open === !document.body.hasAttribute("data-folded"), id + ": only footer team follows fixture fold state");
+  }
   if (sec.dataset.kind !== "footer") continue;
 
   log(!!card, id + ": the plan table follows the last hr");
@@ -226,7 +241,7 @@ const page = (fold) => `<!doctype html><html><head><meta charset="utf-8"><title>
 <style>body{background:var(--background);color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0;padding:16px} section{max-width:720px;margin:0 auto 28px} h2{font:600 11px/1 ui-monospace,monospace;color:var(--muted-foreground);margin:0 0 6px}</style>
 <style id="footer-css">${fs.readFileSync(footerCssPath, "utf8")}</style>
 <script>if (location.hash.includes("nocss")) document.getElementById("footer-css").remove();</script>
-</head><body>${html(fold)}<script>${checks}</script></body></html>`;
+</head><body${fold ? ' data-folded=""' : ""}>${html(fold)}<script>${checks}</script></body></html>`;
 fs.writeFileSync(outPath, page(false));
 fs.writeFileSync(outPath.replace(/\.html$/, "-folded.html"), page(true));
 console.log("wrote", outPath, "and the folded copy");
