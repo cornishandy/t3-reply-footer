@@ -5,8 +5,9 @@
  * (Andy, 7 Nov 2026: wrap everywhere, not just in narrow lanes): cells wrap between words, and only code, links and
  * chips break mid-word, each keeping at least 6rem (about ten characters a line). Under a 36rem lane cells also take
  * less side padding. A table whose words still don't fit (many columns) scrolls, and a table that scrolls shows its
- * scrollbar. Widths come from "t3x-lane", a container this file gives each reply that ends in a footer card (T3
- * Nightly dropped its own "chat-lane" container on 7 Nov 2026; a plain reply has none, so it keeps the wider padding).
+ * scrollbar. Widths come from "t3x-lane", a container this file gives each assistant reply that ends in a footer card
+ * (T3 Nightly dropped its own "chat-lane" container on 7 Nov 2026). Only assistant replies: a user message is a
+ * shrink-to-fit bubble, which a size container would collapse. A plain reply has none, so it keeps the wider padding.
  * The footer card and its team list keep their own layout (below). */
 .chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) *) {
   & table { min-width: 0; }
@@ -14,7 +15,7 @@
   & :is(th, td) :is(code, a, .chat-markdown-file-link, [data-slot="context-chip"]) { white-space: normal; overflow-wrap: anywhere; }
   & :is(th, td):has(code, a, .chat-markdown-file-link, [data-slot="context-chip"]) { min-width: 6rem; }
 }
-.chat-markdown:has(> hr:last-of-type + .chat-markdown-table-container :is([itemprop~="settle-yes"], [itemprop~="settle-no"])) {
+[data-message-role="assistant"] .chat-markdown:has(> hr:last-of-type + .chat-markdown-table-container :is([itemprop~="settle-yes"], [itemprop~="settle-no"])):has(> hr:last-of-type + .chat-markdown-table-container thead th:nth-child(3)) {
   container: t3x-lane / inline-size;
 }
 @container t3x-lane (width < 36rem) {

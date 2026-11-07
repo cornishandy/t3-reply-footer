@@ -77,7 +77,14 @@ const cases = [
   { id: "wide-table", kind: "plain", mayScroll: true, md: "Changed files:\n\n" + WIDE },
   { id: "no-hook", kind: "plain", md: "Body.\n\n<details open><summary>Body details</summary>\n\n| Inside | Body details |\n|---|---|\n| stays | T3's own look |\n\n</details>\n\n---\n\n| Status | Value |\n|---|---|\n| Needs you | a long cell that wraps like any reply table, since this table has no verdict hook and gets no card layout |\n" },
 ];
-const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}><h2>${c.id}</h2><div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div></section>`).join("\n");
+// a footer pasted into a user message: T3 draws it in a shrink-to-fit bubble, which must keep its width (a size
+// container there would collapse it), so only assistant rows get the t3x-lane container
+cases.push({ id: "user-paste", kind: "user", md: cases[0].md });
+// T3's timeline rows carry data-message-role; a user bubble sizes to its content
+const row = (c, inner) => c.kind === "user"
+  ? `<div data-message-role="user" style="display:flex;justify-content:flex-end"><div data-bubble style="width:fit-content;max-width:80%">${inner}</div></div>`
+  : `<div data-message-role="assistant">${inner}</div>`;
+const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}><h2>${c.id}</h2>${row(c, `<div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div>`)}</section>`).join("\n");
 
 const checks = String.raw`
 let fails = 0; const out = []; const log = (ok, msg) => { if (!ok) fails++; out.push((ok ? "PASS " : "FAIL ") + msg); };
@@ -121,6 +128,11 @@ const contrast = (el) => { const bg = bgOf(el), fg = over(parse(cs(el).color), b
 for (const sec of document.querySelectorAll("section")) {
   const id = sec.dataset.case, { md, card, rundown, strip, sub } = parts(sec);
   const lane = laneOf(sec), phone = lane < 480;
+  if (sec.dataset.kind === "user") {
+    log(cs(md).containerType === "normal", id + ": a user message is not made a size container");
+    if (!nocss) log(sec.querySelector("[data-bubble]").getBoundingClientRect().width > Math.min(200, lane / 2), id + ": a pasted footer keeps its bubble's width (" + Math.round(sec.querySelector("[data-bubble]").getBoundingClientRect().width) + ")");
+    continue;
+  }
   const conts = [...md.querySelectorAll(".chat-markdown-table-container")];
   const plain = sec.dataset.kind === "plain" ? conts : conts.filter((c) => c !== card && !rundown?.contains(c));
   if (nocss) {
