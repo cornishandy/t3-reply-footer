@@ -1,3 +1,28 @@
+/* ---------- reply tables fit the chat lane ----------
+ * T3 keeps every reply table at its natural width (each cell one line, cut at 24rem with "…"), so in a narrowed window
+ * the right-hand columns run off the edge and the scrollbar stays hidden until hovered (Andy, 25 Oct 2026: "it should
+ * dynamically resize so I can see full width of table, within reason"). Here a table fits the lane at any width
+ * (Andy, 7 Nov 2026: wrap everywhere, not just in narrow lanes): cells wrap between words, and only code, links and
+ * chips break mid-word, each keeping at least 6rem (about ten characters a line). Under a 36rem lane cells also take
+ * less side padding. A table whose words still don't fit (many columns) scrolls, and a table that scrolls shows its
+ * scrollbar. "chat-lane" is T3's own container on each timeline row, the one its table rules use.
+ * The footer card and its team list keep their own layout (below). */
+.chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div *) {
+  & table { min-width: 0; }
+  & :is(th, td) { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+  & :is(th, td) :is(code, a, .chat-markdown-file-link, [data-slot="context-chip"]) { white-space: normal; overflow-wrap: anywhere; }
+  & :is(th, td):has(code, a, .chat-markdown-file-link, [data-slot="context-chip"]) { min-width: 6rem; }
+}
+@container chat-lane (width < 36rem) {
+  .chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div *) :is(th, td) { padding-inline: .5rem; }
+}
+.chat-markdown .chat-markdown-table-container [data-slot="scroll-area-scrollbar"][data-orientation="horizontal"] {
+  opacity: 1;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+  & [data-slot="scroll-area-thumb"] { background: color-mix(in srgb, var(--muted-foreground) 70%, transparent); }
+}
+
 /* ---------- reply footer card ----------
  * Round 11 (approved by Andy 19 Oct 2026).
  * The footer agents write at the end of each reply (rules in RULES.md):
@@ -166,9 +191,12 @@ html[data-t3x-footer-team="always-show"] .chat-markdown > hr:last-of-type + .cha
   color: var(--muted-foreground);
 }
 
-/* phones: who and when drop under the step, left-aligned with it */
-@media (max-width: 480px) {
+/* a narrow chat lane (a phone, or a narrowed window whose sidebar leaves the chat under 30rem): who and when drop under
+ * the step, left-aligned with it, and header words wrap. The lane is measured, not the window, so this also holds in a
+ * wide window's narrow pane (Andy, 25 Oct 2026). */
+@container chat-lane (width < 30rem) {
   .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) {
+    & thead th { white-space: normal; }
     & td:first-child { flex-basis: 4.9rem; min-width: 0; white-space: normal; }
     & td:nth-child(2) { flex: 1 1 0; }
     & td:last-child { flex: 1 0 100%; margin-left: 0; padding: 0 .75rem .2rem calc(4.9rem + .75rem); text-align: left; text-wrap: wrap; line-height: 1.4; }

@@ -24,8 +24,8 @@ A status card at the end of every AI agent reply in [T3 Code](https://github.com
 | File | What it is |
 |---|---|
 | [`RULES.md`](RULES.md) | The instructions agents follow to write the footer. Paste it into `CLAUDE.md`, `AGENTS.md` or `GEMINI.md`. |
-| [`footer.css`](footer.css) | Draws the card in T3. It uses the active theme's colours (`--info`, `--destructive`, `--success`), so it works in every theme. |
-| [`test/`](test) | Runs the examples from `RULES.md` through T3's Markdown pipeline and T3's own CSS, then checks the card in headless Chrome: light and dark, desktop and phone widths, no stylesheet, and each team-list mode. |
+| [`footer.css`](footer.css) | Draws the card in T3. It uses the active theme's colours (`--info`, `--destructive`, `--success`), so it works in every theme. It also fits other reply tables to the chat pane (below). |
+| [`test/`](test) | Runs the examples from `RULES.md` through T3's Markdown pipeline and T3's own CSS, then checks the card in headless Chrome: light and dark, desktop and phone widths, a narrow chat pane in a wider window, no stylesheet, and each team-list mode. |
 | [`docs/`](docs) | Design decisions, the project history and screenshots. |
 
 ## How it works
@@ -35,6 +35,8 @@ The agent ends each reply with `---`, then a three-column Markdown table (status
 T3's sanitizer keeps `itemprop`, `<ins>`, `<del>`, `<sub>` and `<details>`, so these act as styling hooks without any scripts. The CSS only touches the table right after a reply's last `<hr>`, and only when that table has the verdict hook and three columns. Every other table keeps T3's normal look.
 
 Without footer.css, T3 uses its normal Markdown table layout. Long cells may be truncated and narrow views may need horizontal scrolling; load footer.css for the full card layout.
+
+Narrow layouts follow the width of T3's chat lane (its `chat-lane` container), not the window, so a narrowed window with the sidebar open gets them too. Under a 30rem lane the card's who-and-when drops under each step. Every other reply table fits the lane at any width: cells wrap between words instead of being cut off with "…", and only code, links and chips break mid-word. A table with too many columns to fit still scrolls, and a table that scrolls shows its scrollbar instead of hiding it until hovered.
 
 Hooks: `itemprop` = `settle-yes` · `settle-no` · `running` · `failed` · `over` · `saved`; `<ins>` marks words the human acts on; `~~…~~` marks finished steps and answered items.
 
@@ -49,7 +51,7 @@ The team-list switch is optional: set `data-t3x-footer-team` on `<html>` to `alw
 
 ```sh
 npm ci --prefix test
-test/run.sh            # 9 views; exit 1 if any check fails
+test/run.sh            # 12 views; exit 1 if any check fails
 SHOTS=1 test/run.sh    # also saves screenshots to docs/screenshots/
 ```
 
@@ -61,8 +63,9 @@ It needs Node 20+ and Chrome. Set `CHROME=/path/to/chrome` if it isn't found.
 
 - [x] Footer rules (round 11, with Time, Usage and Saved usage rows)
 - [x] Card CSS, approved and installed in T3 Code Nightly
-- [x] Test harness, 9 views passing
-- [x] Phone layout (who-and-when drops under the step)
+- [x] Test harness, 12 views passing
+- [x] Phone layout (who-and-when drops under the step), keyed to the chat lane's width
+- [x] Reply tables wrap to fit the chat pane, and a table that scrolls shows its scrollbar
 - [ ] A native user-stylesheet hook in T3, so no loader is needed
 
 ## License

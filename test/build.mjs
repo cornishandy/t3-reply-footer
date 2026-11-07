@@ -2,7 +2,8 @@
 // (remark-gfm, rehype-raw, rehype-sanitize with T3's schema change), tables wrapped the way T3 wraps them, <details>
 // replaced by T3's own collapsible markup, styled by T3's own CSS (subset) plus footer.css, with in-page checks that
 // log PASS/FAIL. Usage: node build.mjs <RULES.md> <t3-subset.css> <footer.css> <out.html>
-// Page flags (URL hash): dark, nocss (no footer CSS), team-always-show / team-always-hide (the ✦ switch), folded.
+// Page flags (URL hash): dark, nocss (no footer CSS), team-always-show / team-always-hide (the ✦ switch), folded,
+// lane-N (each case's chat lane N px wide, as in a narrowed window whose sidebar leaves a narrow chat pane).
 import fs from "node:fs";
 import { createRequire } from "node:module";
 const require = createRequire(new URL("./package.json", import.meta.url));
@@ -20,9 +21,11 @@ const [sectionPath, t3cssPath, footerCssPath, outPath] = process.argv.slice(2);
 const schema = { ...defaultSchema, attributes: { ...defaultSchema.attributes, "*": defaultSchema.attributes["*"].filter((a) => a !== "title") } };
 const md = (src) => String(unified().use(remarkParse).use(remarkGfm).use(remarkRehype, { allowDangerousHtml: true })
   .use(rehypeRaw).use(rehypeSanitize, schema).use(rehypeStringify).processSync(src));
-// T3's table component: <div class="chat-markdown-table-container" data-expanded="false"><ScrollArea><table/></ScrollArea><controls/></div>
+// T3's table component: <div class="chat-markdown-table-container" data-expanded="false"><ScrollArea><table/></ScrollArea><controls/></div>.
+// Its ScrollArea (Base UI) clips to a scrolling viewport and mounts a horizontal scrollbar, hidden until hovered, only
+// while the table overflows; the checks add that scrollbar the same way once the page has laid out.
 const wrapTables = (html) => html.replace(/<table>([\s\S]*?)<\/table>/g, (_, t) =>
-  `<div class="chat-markdown-table-container" data-expanded="false"><div data-slot="scroll-area" class="w-full max-w-full relative"><div data-slot="scroll-area-viewport"><table>${t}</table></div></div>` +
+  `<div class="chat-markdown-table-container" data-expanded="false"><div data-slot="scroll-area" class="w-full max-w-full relative overflow-hidden"><div data-slot="scroll-area-viewport"><table>${t}</table></div></div>` +
   `<div class="mt-0.5 flex items-center justify-between select-none" data-ctl><span></span><button type="button" aria-label="Copy table">⧉</button></div></div>`);
 // T3's details component (bundle function TO, Base UI collapsible): a wrapper div, the root, a trigger button with a
 // chevron and the summary text, and a panel that is unmounted while closed.
@@ -45,7 +48,7 @@ const section = fs.readFileSync(sectionPath, "utf8");
 const examples = [...section.matchAll(/```\n([\s\S]*?)```/g)].map((m) => m[1]).filter((b) => b.startsWith("---"));
 if (examples.length !== 3) throw new Error(`expected 3 footer examples, found ${examples.length}`);
 const [quiet, busy, nextTurn] = examples;
-const body = "Here is the reply body, with a table of its own:\n\n| Plan | Cost |\n|---|---|\n| A long body row that should stay on one line with T3's ellipsis because it is not part of the footer at all | $5 |\n\nAnd a closing paragraph.\n\n";
+const body = "Here is the reply body, with a table of its own:\n\n| Plan | Cost |\n|---|---|\n| A long body row that wraps to fit the chat lane, since it is not part of the footer and keeps T3's plain table look | $5 |\n\nAnd a closing paragraph.\n\n";
 const R9 = fs.readFileSync(new URL("./fixtures/round9-busy.md", import.meta.url), "utf8");
 // a real Sol footer (20 Oct 2026) whose long who-and-when cells squeezed the step column in a table layout
 const LONGMETA = fs.readFileSync(new URL("./fixtures/long-meta.md", import.meta.url), "utf8");
@@ -53,6 +56,11 @@ const LONG = "a".repeat(220);
 const longStep = `---\n\n| <span itemprop="settle-no">🔴 Don't settle yet</span> | review running | 0 of 1 done · ETA 11:55 PM |\n|---|---|--:|\n| Running | <span itemprop="running">Check \`${LONG}\` then [open this page](https://example.invalid/${LONG})</span> | Sol · 11:40–11:55 PM · planned 15 |\n| Needs you | **1. Inspect** · <ins>Read</ins> \`${LONG}\`. Blocks nothing. |   |\n\n<sub>Decided for you -- · Skills -- · Written by Claude Opus 5.5 xhigh · Claude usage: protecting · 1.0 of 9.8 points today</sub>\n`;
 // the rundown followed by <sub> with no blank line between: <sub> arrives bare, not in a paragraph
 const directSub = nextTurn.replace("</details>\n\n<sub>", "</details>\n<sub>");
+// the screenshot of 25 Oct 2026: a footer written without its `---` or verdict hook is a plain three-column table, which
+// in a narrow chat lane ran off the right edge with no sign it scrolled
+const NOHOOK = "| 🔴 Don't settle yet | Watch remains open | 1 of 2 done · ETA 9:05 PM |\n|---|---|--:|\n| Still running / due | State | Next check |\n| [Thread health watch (48)](t3-thread://v1/example) | Persistent LaunchAgent (`PID 87049`) + webhook 2 still bound to this thread; next scan at 9:05 PM | script · every 5 min |\n";
+// six columns with a long path: too many words for a phone-width lane, so it may scroll, but then it must say so
+const WIDE = "| File | Before | After | Change | Owner | Notes |\n|---|---|---|---|---|---|\n| `/Users/you/Documents/ChatGPT/t3-reply-footer/footer.css` | 175 lines | 210 lines | +35 | Opus | container queries for narrow chat lanes |\n| `test/build.mjs` | 1 | 2 | +1 | Opus | lane wrapper |\n";
 const cases = [
   { id: "quiet", kind: "footer", md: body + quiet },
   { id: "busy", kind: "footer", timed: true, team: true, md: body + "<details open><summary>Body details beside footer</summary>\n\nBody disclosure stays open.\n\n</details>\n\n" + busy },
@@ -65,9 +73,11 @@ const cases = [
   // a body hr followed by a table, then the real footer: only the footer's tables change
   { id: "two-hrs", kind: "footer", timed: true, team: true, md: "Intro.\n\n---\n\n| Body | Table |\n|---|---|\n| after an earlier hr | stays plain |\n\nMore body.\n\n" + nextTurn },
   // an old-style or foreign reply: hr + table without the verdict hook stays T3's own table, and so does a body <details>
-  { id: "no-hook", kind: "plain", md: "Body.\n\n<details open><summary>Body details</summary>\n\n| Inside | Body details |\n|---|---|\n| stays | T3's own look |\n\n</details>\n\n---\n\n| Status | Value |\n|---|---|\n| Needs you | a long cell that should keep T3's one-line ellipsis behaviour, since this table has no verdict hook at all |\n" },
+  { id: "no-hr-footer", kind: "plain", md: "Status after compaction:\n\n" + NOHOOK },
+  { id: "wide-table", kind: "plain", mayScroll: true, md: "Changed files:\n\n" + WIDE },
+  { id: "no-hook", kind: "plain", md: "Body.\n\n<details open><summary>Body details</summary>\n\n| Inside | Body details |\n|---|---|\n| stays | T3's own look |\n\n</details>\n\n---\n\n| Status | Value |\n|---|---|\n| Needs you | a long cell that wraps like any reply table, since this table has no verdict hook and gets no card layout |\n" },
 ];
-const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}><h2>${c.id}</h2><div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div></section>`).join("\n");
+const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}><h2>${c.id}</h2><div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div></section>`).join("\n");
 
 const checks = String.raw`
 let fails = 0; const out = []; const log = (ok, msg) => { if (!ok) fails++; out.push((ok ? "PASS " : "FAIL ") + msg); };
@@ -78,7 +88,13 @@ const isGreen = (c) => { const [r, g, b] = rgb(c); return g > r + 30 && g > b + 
 const clear = (c) => c === "rgba(0, 0, 0, 0)" || c === "transparent";
 // a row's tint sits on its cells (desktop grid) or on the row itself (phones)
 const tinted = (tr) => !clear(cs(tr).backgroundColor) || !clear(cs(tr.children[1]).backgroundColor);
-const phone = innerWidth <= 480, H = location.hash;
+const H = location.hash;
+// each section is a chat lane (T3's chat-lane container); the footer's narrow layout and the table fitting follow its width
+const laneOf = (sec) => sec.getBoundingClientRect().width;
+for (const vp of document.querySelectorAll("[data-slot=scroll-area-viewport]")) if (vp.scrollWidth > vp.clientWidth + 1) {
+  const bar = document.createElement("div"); bar.dataset.slot = "scroll-area-scrollbar"; bar.dataset.orientation = "horizontal"; bar.className = "opacity-0";
+  bar.innerHTML = '<div data-slot="scroll-area-thumb"></div>'; vp.after(bar);
+}
 const nocss = H.includes("nocss");
 const team = (H.match(/team-([a-z-]+)/) || [])[1];
 if (team) document.documentElement.setAttribute("data-t3x-footer-team", team);
@@ -103,6 +119,7 @@ const contrast = (el) => { const bg = bgOf(el), fg = over(parse(cs(el).color), b
 
 for (const sec of document.querySelectorAll("section")) {
   const id = sec.dataset.case, { md, card, rundown, strip, sub } = parts(sec);
+  const lane = laneOf(sec), phone = lane < 480;
   const conts = [...md.querySelectorAll(".chat-markdown-table-container")];
   const plain = sec.dataset.kind === "plain" ? conts : conts.filter((c) => c !== card && !rundown?.contains(c));
   if (nocss) {
@@ -115,8 +132,15 @@ for (const sec of document.querySelectorAll("section")) {
   }
   for (const o of plain) {
     log(cs(o.querySelector("[data-ctl]")).display !== "none", id + ": non-footer table keeps its controls");
-    log(cs(o.querySelector("td")).whiteSpace === "nowrap", id + ": non-footer cells keep T3's one-line ellipsis");
     log(cs(o).borderTopWidth === "0px", id + ": non-footer table gets no card border");
+    const vp = o.querySelector("[data-slot=scroll-area-viewport]"), bar = o.querySelector("[data-slot=scroll-area-scrollbar]");
+    const over = vp.scrollWidth > vp.clientWidth + 1;
+    // Andy, 25 Oct 2026: "it should dynamically resize so I can see full width of table, within reason. currently
+    // requires scroll horizontally without any indication that scroll is even necessary"
+    if (over) log(!!bar && +cs(bar).opacity === 1 && cs(bar).display !== "none" && cs(bar.firstElementChild).backgroundColor !== cs(bar).backgroundColor, id + ": a table that scrolls shows its scrollbar");
+    // Andy, 7 Nov 2026: wrap at every lane width, not just narrow ones
+    log([...o.querySelectorAll("th, td")].every((c) => cs(c).whiteSpace === "normal" && c.scrollWidth <= c.clientWidth + 1), id + ": cells wrap, nothing cut off");
+    if (!sec.hasAttribute("data-may-scroll") || lane >= 400) log(!over, id + ": the table fits the lane (" + vp.scrollWidth + " in " + vp.clientWidth + ")");
   }
   for (const d of md.querySelectorAll("[data-markdown-details]")) {
     const trigger = d.querySelector("[data-markdown-details-summary]");
@@ -231,14 +255,20 @@ for (const sec of document.querySelectorAll("section")) {
   }
   log(!bad.length, id + ": contrast >= 4.5:1 (worst " + worst.toFixed(2) + ")" + (bad.length ? " " + bad.join("; ") : ""));
 }
-out.push((fails ? fails + " FAILED" : "ALL PASSED") + " (" + (document.documentElement.classList.contains("dark") ? "dark" : "light") + ", " + innerWidth + "px" + (team ? ", team " + team : "") + (nocss ? ", no add-ons" : "") + ")");
+out.push((fails ? fails + " FAILED" : "ALL PASSED") + " (" + (document.documentElement.classList.contains("dark") ? "dark" : "light") + ", " + innerWidth + "px, lane " + Math.round(laneOf(document.querySelector("section"))) + "px" + (team ? ", team " + team : "") + (nocss ? ", no add-ons" : "") + ")");
 const pre = document.createElement("pre"); pre.id = "results"; pre.textContent = out.join("\n"); pre.style.display = "none"; document.body.append(pre);
 `;
 
 const page = (fold) => `<!doctype html><html><head><meta charset="utf-8"><title>footer test</title>
 <script>if (location.hash.includes("dark")) document.documentElement.classList.add("dark");</script>
 <style>${fs.readFileSync(t3cssPath, "utf8")}</style>
-<style>body{background:var(--background);color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0;padding:16px} section{max-width:720px;margin:0 auto 28px} h2{font:600 11px/1 ui-monospace,monospace;color:var(--muted-foreground);margin:0 0 6px}</style>
+<style>body{background:var(--background);color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0;padding:16px} section{max-width:var(--lane,720px);margin:0 auto 28px;container:chat-lane/inline-size} h2{font:600 11px/1 ui-monospace,monospace;color:var(--muted-foreground);margin:0 0 6px}
+/* T3's ScrollArea (scroll-area component, Base UI): utility classes the subset lacks */
+@layer utilities{.relative{position:relative}.max-w-full{max-width:100%}.opacity-0{opacity:0}
+[data-slot=scroll-area-viewport]{height:100%;overflow:auto;overscroll-behavior:contain}
+[data-slot=scroll-area-scrollbar][data-orientation=horizontal]{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;height:.375rem;margin:0 .25rem 1px;transition:opacity .15s .3s}
+[data-slot=scroll-area-thumb]{position:relative;flex:1;border-radius:9999px;background:var(--app-scrollbar-thumb)}}</style>
+<script>{ const m = location.hash.match(/lane-(\\d+)/); if (m) document.documentElement.style.setProperty("--lane", m[1] + "px"); }</script>
 <style id="footer-css">${fs.readFileSync(footerCssPath, "utf8")}</style>
 <script>if (location.hash.includes("nocss")) document.getElementById("footer-css").remove();</script>
 </head><body${fold ? ' data-folded=""' : ""}>${html(fold)}<script>${checks}</script></body></html>`;
