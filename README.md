@@ -32,11 +32,11 @@ A status card at the end of every AI agent reply in [T3 Code](https://github.com
 
 The agent ends each reply with `---`, then a three-column Markdown table (status · step · who and when). The table's header holds the verdict, wrapped in `<span itemprop="settle-yes">` or `settle-no`. After that come an optional `<details>` team list and one small `<sub>` line.
 
-T3's sanitizer keeps `itemprop`, `<ins>`, `<del>`, `<sub>` and `<details>`, so these act as styling hooks without any scripts. The CSS only touches the table right after a reply's last `<hr>`, and only when that table has the verdict hook and three columns. Every other table keeps T3's normal look.
+T3's sanitizer keeps `itemprop`, `<ins>`, `<del>`, `<sub>` and `<details>`, so these act as styling hooks without any scripts. The card styling applies only to the table right after a reply's last `<hr>`, and only when that table has the verdict hook and three columns. Every other table keeps T3's normal look, except that it wraps to fit the chat pane and shows its scrollbar when it scrolls (below).
 
 Without footer.css, T3 uses its normal Markdown table layout. Long cells may be truncated and narrow views may need horizontal scrolling; load footer.css for the full card layout.
 
-Narrow layouts follow the width of T3's chat lane (its `chat-lane` container), not the window, so a narrowed window with the sidebar open gets them too. Under a 30rem lane the card's who-and-when drops under each step. Every other reply table fits the lane at any width: cells wrap between words instead of being cut off with "…", and only code, links and chips break mid-word. A table with too many columns to fit still scrolls, and a table that scrolls shows its scrollbar instead of hiding it until hovered.
+Narrow layouts follow the width of T3's chat lane (its `chat-lane` container), not the window, so a narrowed window with the sidebar open gets them too. Under a 30rem lane the card's who-and-when drops under each step. In a lane of 40rem or more, a busy card (five or more rows) widens to the lane, up to 52rem, so long rows wrap less; shorter cards keep fitting their words. Every other reply table fits the lane at any width: cells wrap between words instead of being cut off with "…", and only code, links and chips break mid-word. A table with too many columns to fit still scrolls, and a table that scrolls shows its scrollbar instead of hiding it until hovered.
 
 Hooks: `itemprop` = `settle-yes` · `settle-no` · `running` · `failed` · `over` · `saved`; `<ins>` marks words the human acts on; `~~…~~` marks finished steps and answered items.
 

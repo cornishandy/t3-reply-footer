@@ -165,6 +165,13 @@ for (const sec of document.querySelectorAll("section")) {
   const tds = [...card.querySelectorAll("tbody td")];
   log(tds.every((td) => cs(td).textOverflow === "clip"), id + ": no ellipsis in footer cells");
   log(card.querySelector("table").getBoundingClientRect().width <= card.getBoundingClientRect().width + 0.5, id + ": card fits its column (no sideways scroll)");
+  // Andy, 7 Nov 2026: "when window is wider than the footer table, please have it expand to fit, within reason":
+  // in a lane of 40rem or more a busy card (5+ rows) fills the lane up to 52rem; a shorter card keeps fitting its words
+  if (lane >= 640) {
+    const cw = card.getBoundingClientRect().width, rows = card.querySelectorAll("tbody tr").length;
+    if (rows >= 5) log(Math.abs(cw - Math.min(lane, 832)) <= 1, id + ": busy card fills the wide lane (" + Math.round(cw) + " in " + Math.round(lane) + ")");
+    else log(cw < lane - 40, id + ": short card fits its words (" + Math.round(cw) + " in " + Math.round(lane) + ")");
+  }
 
   const verdict = card.querySelector("thead [itemprop^=settle-]");
   log(!!verdict, id + ": verdict hook survived sanitising");

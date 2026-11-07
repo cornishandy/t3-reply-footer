@@ -7,14 +7,14 @@
  * less side padding. A table whose words still don't fit (many columns) scrolls, and a table that scrolls shows its
  * scrollbar. "chat-lane" is T3's own container on each timeline row, the one its table rules use.
  * The footer card and its team list keep their own layout (below). */
-.chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div *) {
+.chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) *) {
   & table { min-width: 0; }
   & :is(th, td) { max-width: none; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
   & :is(th, td) :is(code, a, .chat-markdown-file-link, [data-slot="context-chip"]) { white-space: normal; overflow-wrap: anywhere; }
   & :is(th, td):has(code, a, .chat-markdown-file-link, [data-slot="context-chip"]) { min-width: 6rem; }
 }
 @container chat-lane (width < 36rem) {
-  .chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div *) :is(th, td) { padding-inline: .5rem; }
+  .chat-markdown .chat-markdown-table-container:not(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details]) *) :is(th, td) { padding-inline: .5rem; }
 }
 .chat-markdown .chat-markdown-table-container [data-slot="scroll-area-scrollbar"][data-orientation="horizontal"] {
   opacity: 1;
@@ -200,5 +200,17 @@ html[data-t3x-footer-team="always-show"] .chat-markdown > hr:last-of-type + .cha
     & td:first-child { flex-basis: 4.9rem; min-width: 0; white-space: normal; }
     & td:nth-child(2) { flex: 1 1 0; }
     & td:last-child { flex: 1 0 100%; margin-left: 0; padding: 0 .75rem .2rem calc(4.9rem + .75rem); text-align: left; text-wrap: wrap; line-height: 1.4; }
+  }
+}
+
+/* ---------- a busy card fills a wide lane ----------
+ * In a lane of 40rem or more, a card with five or more rows widens to the lane (up to 52rem) and its steps stretch,
+ * so long rows (Usage, Time, Needs you) wrap less instead of leaving the pane's right side empty (Andy, 7 Nov 2026:
+ * "when window is wider than the footer table, please have it expand to fit, within reason"). Shorter cards keep
+ * fitting their words. */
+@container chat-lane (width >= 40rem) {
+  .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)):has(tbody tr:nth-child(5)) {
+    width: min(100%, 52rem);
+    & td:nth-child(2) { flex: 1 1 18rem; width: auto; }
   }
 }
