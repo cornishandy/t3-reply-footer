@@ -2,3 +2,4 @@ node_modules/
 test/footer-test.html
 test/footer-test-folded.html
 .DS_Store
+test/footer-test-made-open.html

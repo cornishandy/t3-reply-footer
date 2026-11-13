@@ -1,8 +1,9 @@
 #!/bin/bash
 # Build the footer test pages and run their checks in headless Chrome: light and dark at 760px and 390px,
 # a 380px and a 520px chat lane inside wider windows (a narrowed window with the sidebar open; the 480px media
-# query doesn't fire there), no footer CSS at 360px, the team-list switch's always-show and always-hide, and a
-# folded team list.
+# query doesn't fire there), no footer CSS at 360px, the team-list switch's always-show and always-hide, a folded
+# team list, and the Made so far list: folded as written, open (wide, phone, a narrow lane), with the Mac app
+# confirmed, and under its switch's hide and always-open.
 # Usage: test/run.sh   (SHOTS=1 also saves screenshots; exit 1 if any check fails)
 # Needs Node 20+ (`npm ci --prefix test` once) and a Chrome: set CHROME, or it tries T3's bundled
 # chrome-headless-shell, then Google Chrome.
@@ -20,7 +21,10 @@ node "$T/build.mjs" "$D/RULES.md" "$T/t3-subset.css" "$D/footer.css" "$T/footer-
 status=0
 for v in "footer-test light 760" "footer-test dark 760" "footer-test light 390" "footer-test dark 390" \
          "footer-test light-lane-380 640" "footer-test dark-lane-380 640" "footer-test light-lane-520 840" "footer-test light-nocss 360" \
-         "footer-test light-team-always-show 760" "footer-test dark-team-always-hide 760" "footer-test-folded light 760" "footer-test-folded dark 390"; do
+         "footer-test light-team-always-show 760" "footer-test dark-team-always-hide 760" "footer-test-folded light 760" "footer-test-folded dark 390" \
+         "footer-test-made-open light 760" "footer-test-made-open dark 390" "footer-test-made-open light-lane-380 640" "footer-test-made-open dark-mac-app 760" \
+         "footer-test-made-open light-mac-app 390" "footer-test-made-open light-team-always-hide 760" "footer-test-made-open dark-made-always-open 760" \
+         "footer-test light-made-hide 760" "footer-test-made-open light-nocss 360"; do
   set -- $v
   out="$("$CH" --headless --disable-gpu --hide-scrollbars --window-size="$3,3000" --virtual-time-budget=3000 --dump-dom "file://$T/$1.html#$2" 2>/dev/null \
     | python3 -I -c 'import sys,re,html; m=re.search(r"<pre id=\"results\"[^>]*>(.*?)</pre>", sys.stdin.read(), re.S); print(html.unescape(m.group(1)) if m else "NO RESULTS")')"

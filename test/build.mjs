@@ -2,7 +2,8 @@
 // (remark-gfm, rehype-raw, rehype-sanitize with T3's schema change), tables wrapped the way T3 wraps them, <details>
 // replaced by T3's own collapsible markup, styled by T3's own CSS (subset) plus footer.css, with in-page checks that
 // log PASS/FAIL. Usage: node build.mjs <RULES.md> <t3-subset.css> <footer.css> <out.html>
-// Page flags (URL hash): dark, nocss (no footer CSS), team-always-show / team-always-hide (the ✦ switch), folded,
+// Page flags (URL hash): dark, nocss (no footer CSS), team-always-show / team-always-hide and made-hide /
+// made-always-open (the ✦ switches), mac-app (the add-on has confirmed the Mac app), folded,
 // lane-N (each case's chat lane N px wide, as in a narrowed window whose sidebar leaves a narrow chat pane).
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -30,11 +31,15 @@ const wrapTables = (html) => html.replace(/<table>([\s\S]*?)<\/table>/g, (_, t) 
 // T3's details component (bundle function TO, Base UI collapsible): a wrapper div, the root, a trigger button with a
 // chevron and the summary text, and a panel that is unmounted while closed.
 const CHEVRON = (open) => `<svg style="transform: rotate(${open ? 90 : 0}deg)" class="size-4 shrink-0 text-muted-foreground transition-transform" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>`;
-const wrapDetails = (html, folded) => {
-  // Only the disclosure directly after the last hr's verdict table is the footer team.
+const wrapDetails = (html, folded, madeOpen) => {
+  // The footer's folds follow the last hr's verdict table: the Made so far list (its summary carries itemprop="made";
+  // written folded, opened only where the add-on would open it) and then the team rundown.
   const footerStart = html.lastIndexOf("<hr>");
   const footer = html.slice(footerStart).match(/^<hr>\s*<div class="chat-markdown-table-container"(?:(?!<hr>)[\s\S])*?<span itemprop="settle-(?:yes|no)"[\s\S]*?<\/table><\/div><\/div><div[^>]*data-ctl>[\s\S]*?<\/div><\/div>\s*(?=<details)/);
-  const teamOffset = footer ? footerStart + footer[0].length : -1;
+  let teamOffset = footer ? footerStart + footer[0].length : -1;
+  const madeFold = teamOffset < 0 ? null : html.slice(teamOffset).match(/^<details>\s*<summary><span itemprop="made">(?:(?!<details)[\s\S])*?<\/details>\s*/);
+  const madeOffset = madeFold ? teamOffset : -1;
+  if (madeFold) teamOffset = html.startsWith("<details", teamOffset + madeFold[0].length) ? teamOffset + madeFold[0].length : -1;
   // innermost first, so a fold inside a fold (a Needs you item holding its advice) works; the team fold holds no
   // fold, so it is replaced in the first pass, where offsets still match teamOffset
   let pass = 0, prev;
@@ -42,7 +47,7 @@ const wrapDetails = (html, folded) => {
     prev = html;
     const first = pass === 0;
     html = html.replace(/<details( open(?:="")?)?>\s*<summary>((?:(?!<details|<summary)[\s\S])*?)<\/summary>((?:(?!<details)[\s\S])*?)<\/details>/g, (_, open, summary, body, offset) => {
-      const isOpen = !!open && !(folded && first && offset === teamOffset);
+      const isOpen = first && offset === madeOffset ? !!madeOpen : !!open && !(folded && first && offset === teamOffset);
       return `<div class="my-2 border-y border-border/60"><div data-slot="collapsible" data-markdown-details="" data-markdown-details-open="${isOpen}">` +
         `<button type="button" data-slot="collapsible-trigger" class="cursor-pointer flex w-full items-center gap-2 py-2 text-left text-sm font-medium text-foreground" data-markdown-details-summary=""${isOpen ? ' data-panel-open=""' : ""} aria-expanded="${isOpen}">${CHEVRON(isOpen)}<span>${summary}</span></button>` +
         (isOpen ? `<div data-slot="collapsible-panel" class="overflow-hidden" data-open=""><div class="pb-3 ps-6" data-markdown-details-content="">${body}</div></div>` : "") +
@@ -73,19 +78,26 @@ const directSub = nextTurn.replace("</details>\n\n<sub>", "</details>\n<sub>");
 const NOHOOK = "| 🔴 Don't settle yet | Watch remains open | 1 of 2 done · ETA 9:05 PM |\n|---|---|--:|\n| Still running / due | State | Next check |\n| [Thread health watch (48)](t3-thread://v1/example) | Persistent LaunchAgent (`PID 87049`) + webhook 2 still bound to this thread; next scan at 9:05 PM | script · every 5 min |\n";
 // six columns with a long path: too many words for a phone-width lane, so it may scroll, but then it must say so
 const WIDE = "| File | Before | After | Change | Owner | Notes |\n|---|---|---|---|---|---|\n| `/Users/you/Documents/ChatGPT/t3-reply-footer/footer.css` | 175 lines | 210 lines | +35 | Opus | container queries for narrow chat lanes |\n| `test/build.mjs` | 1 | 2 | +1 | Opus | lane wrapper |\n";
+// a long thread's list (14 things, three kinds) under a quiet card with no team rundown; then the same with a bare <sub>
+const MADELONG = fs.readFileSync(new URL("./fixtures/made-long.md", import.meta.url), "utf8");
+// a thread's first thing: a one-row list (one visual), under the same quiet card
+const MADEONE = fs.readFileSync(new URL("./fixtures/made-one.md", import.meta.url), "utf8");
 const cases = [
   { id: "quiet", kind: "footer", md: body + quiet },
-  { id: "busy", kind: "footer", timed: true, team: true, md: body + "<details open><summary>Body details beside footer</summary>\n\nBody disclosure stays open.\n\n</details>\n\n" + busy },
-  { id: "next-turn", kind: "footer", timed: true, team: true, md: body + nextTurn },
+  { id: "busy", kind: "footer", timed: true, team: true, made: 3, md: body + "<details open><summary>Body details beside footer</summary>\n\nBody disclosure stays open.\n\n</details>\n\n" + busy },
+  { id: "next-turn", kind: "footer", timed: true, team: true, made: 3, md: body + nextTurn },
+  { id: "made-long", kind: "footer", made: 14, md: body + MADELONG },
+  { id: "made-direct-sub", kind: "footer", made: 14, md: body + MADELONG.replace("</details>\n\n<sub>", "</details>\n<sub>") },
+  { id: "made-one", kind: "footer", made: 1, md: body + MADEONE },
   { id: "long-token", kind: "footer", md: body + longStep },
   { id: "long-meta", kind: "footer", team: true, md: body + LONGMETA },
-  { id: "direct-sub", kind: "footer", timed: true, team: true, md: body + directSub },
+  { id: "direct-sub", kind: "footer", timed: true, team: true, made: 3, md: body + directSub },
   // a round-9 footer already in an old thread (two columns): T3's own table look, nothing restyled
   { id: "watch-folds", kind: "footer", folds: true, md: body + WATCH },
   { id: "watch-folds-open", kind: "footer", folds: true, md: body + WATCH_OPEN },
   { id: "round9", kind: "plain", md: body + R9 },
   // a body hr followed by a table, then the real footer: only the footer's tables change
-  { id: "two-hrs", kind: "footer", timed: true, team: true, md: "Intro.\n\n---\n\n| Body | Table |\n|---|---|\n| after an earlier hr | stays plain |\n\nMore body.\n\n" + nextTurn },
+  { id: "two-hrs", kind: "footer", timed: true, team: true, made: 3, md: "Intro.\n\n---\n\n| Body | Table |\n|---|---|\n| after an earlier hr | stays plain |\n\nMore body.\n\n" + nextTurn },
   // an old-style or foreign reply: hr + table without the verdict hook stays T3's own table, and so does a body <details>
   { id: "no-hr-footer", kind: "plain", md: "Status after compaction:\n\n" + NOHOOK },
   { id: "wide-table", kind: "plain", mayScroll: true, md: "Changed files:\n\n" + WIDE },
@@ -98,7 +110,7 @@ cases.push({ id: "user-paste", kind: "user", md: cases[0].md });
 const row = (c, inner) => c.kind === "user"
   ? `<div data-message-role="user" style="display:flex;justify-content:flex-end"><div data-bubble style="width:fit-content;max-width:80%">${inner}</div></div>`
   : `<div data-message-role="assistant">${inner}</div>`;
-const html = (fold) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}${c.folds ? " data-folds" : ""}><h2>${c.id}</h2>${row(c, `<div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold)}</div>`)}</section>`).join("\n");
+const html = (fold, madeOpen) => cases.map((c) => `<section data-case="${c.id}" data-kind="${c.kind}"${c.mayScroll ? " data-may-scroll" : ""}${c.timed ? " data-timed" : ""}${c.team ? " data-team" : ""}${c.made ? ` data-made="${c.made}"` : ""}${c.folds ? " data-folds" : ""}><h2>${c.id}</h2>${row(c, `<div class="chat-markdown w-full min-w-0 text-sm leading-relaxed">${wrapDetails(wrapTables(md(c.md)), fold, madeOpen)}</div>`)}</section>`).join("\n");
 
 const checks = String.raw`
 let fails = 0; const out = []; const log = (ok, msg) => { if (!ok) fails++; out.push((ok ? "PASS " : "FAIL ") + msg); };
@@ -120,14 +132,23 @@ for (const vp of document.querySelectorAll("[data-slot=scroll-area-viewport]")) 
 const nocss = H.includes("nocss");
 const team = (H.match(/team-([a-z-]+)/) || [])[1];
 if (team) document.documentElement.setAttribute("data-t3x-footer-team", team);
+const madeMode = (H.match(/made-(hide|always-open)/) || [])[1];
+if (madeMode) document.documentElement.setAttribute("data-t3x-footer-made", madeMode);
+const macApp = H.includes("mac-app");
+if (macApp) document.documentElement.setAttribute("data-t3x-mac-app", "");
+const madeOpen = document.body.hasAttribute("data-made-open");
 const parts = (sec) => {
   const md = sec.querySelector(".chat-markdown");
   const hr = [...md.querySelectorAll(":scope > hr")].at(-1);
   const card = hr && hr.nextElementSibling?.matches(".chat-markdown-table-container") ? hr.nextElementSibling : null;
-  const rundown = card?.nextElementSibling?.querySelector(":scope > [data-markdown-details]") ? card.nextElementSibling : null;
-  const strip = (rundown || card)?.nextElementSibling;
+  const isFold = (el) => !!el?.querySelector(":scope > [data-markdown-details]");
+  const isMade = (el) => isFold(el) && !!el.querySelector(":scope > [data-markdown-details] > [data-markdown-details-summary] [itemprop~=made]");
+  const made = isMade(card?.nextElementSibling) ? card.nextElementSibling : null;
+  const afterMade = (made || card)?.nextElementSibling;
+  const rundown = isFold(afterMade) && !isMade(afterMade) ? afterMade : null;
+  const strip = (rundown || made || card)?.nextElementSibling;
   const sub = strip?.tagName === "SUB" ? strip : strip?.tagName === "P" && strip.firstElementChild?.tagName === "SUB" ? strip.firstElementChild : null;
-  return { md, hr, card, rundown, strip, sub };
+  return { md, hr, card, made, rundown, strip, sub };
 };
 
 // contrast of text against its painted background (cell tint over card over page)
@@ -140,7 +161,7 @@ function bgOf(el) { const stack = []; for (let e = el; e; e = e.parentElement) {
 const contrast = (el) => { const bg = bgOf(el), fg = over(parse(cs(el).color), bg); const [a, b] = [L(fg), L(bg)].sort((x, y) => y - x); return (a + .05) / (b + .05); };
 
 for (const sec of document.querySelectorAll("section")) {
-  const id = sec.dataset.case, { md, card, rundown, strip, sub } = parts(sec);
+  const id = sec.dataset.case, { md, card, made, rundown, strip, sub } = parts(sec);
   const lane = laneOf(sec), phone = lane < 480;
   if (sec.dataset.kind === "user") {
     log(cs(md).containerType === "normal", id + ": a user message is not made a size container");
@@ -148,7 +169,7 @@ for (const sec of document.querySelectorAll("section")) {
     continue;
   }
   const conts = [...md.querySelectorAll(".chat-markdown-table-container")];
-  const plain = sec.dataset.kind === "plain" ? conts : conts.filter((c) => c !== card && !rundown?.contains(c));
+  const plain = sec.dataset.kind === "plain" ? conts : conts.filter((c) => c !== card && !rundown?.contains(c) && !made?.contains(c));
   if (nocss) {
     if (sec.dataset.kind !== "footer") continue;
     // Without the add-ons: T3's own tables. The header row must show in full (T3 cuts cells at 24rem with "…").
@@ -186,6 +207,8 @@ for (const sec of document.querySelectorAll("section")) {
         log(lane < 480 || lines === 1, id + ": folded item is one line (" + lines + ")");
         log(tr.getBoundingClientRect().height <= lines * 20 + 6, id + ": folded row is tight (" + Math.round(tr.getBoundingClientRect().height) + "px)");
       }
+    } else if (made?.contains(d)) {
+      log(open === madeOpen, id + ": the Made fold is folded as written, open only where the add-on opens it");
     } else if (!rundown?.contains(d)) {
       log(open && !!d.querySelector('[data-slot="collapsible-panel"]'), id + ": body details stays open even when footer team is folded");
       log(cs(d.parentElement).borderTopWidth === "1px" && parseFloat(cs(trigger).fontSize) === 14, id + ": a body <details> keeps T3's look");
@@ -279,6 +302,43 @@ for (const sec of document.querySelectorAll("section")) {
   }
   if (!phone) { const rights = metaCells.map((m) => box(m).right); log(rights.every((r) => Math.abs(r - rights[0]) < 1), id + ": who-and-when lines up on the right"); }
 
+  if (made) {
+    const trigger = made.querySelector("[data-markdown-details-summary]"), name = trigger.querySelector("[itemprop~=made]");
+    const count = +sec.dataset.made;
+    log(made.previousElementSibling === card && (!rundown || rundown.previousElementSibling === made), id + ": the Made list sits right under the card, above the team list");
+    log(new RegExp("^Made so far · " + count + ": \\d+ [a-z]+(, \\d+ [a-z]+)*$").test(trigger.textContent.trim()), id + ": Made summary names the count and the kinds");
+    if (nocss) { /* T3's own fold look */ }
+    else if (madeMode === "hide") {
+      log(cs(made).display === "none", id + ": hide hides the Made list");
+      if (rundown && team !== "always-hide") log(cs(rundown).display !== "none" && cs(rundown).marginTop === "7.2px", id + ": hiding the Made list leaves the team list in place");
+    } else {
+      log(cs(made).display !== "none" && cs(made).borderTopWidth === "0px" && parseFloat(cs(trigger).fontSize) === 12 && +cs(trigger).fontWeight === 400, id + ": Made summary small, plain, no rules");
+      log(cs(name).color !== cs(trigger).color, id + ": the words Made so far stand out from the count");
+      if (madeMode === "always-open") log(cs(trigger).pointerEvents === "none" && cs(trigger.querySelector("svg")).display === "none", id + ": always-open blocks pointer clicks and hides the chevron");
+      else log(cs(trigger).pointerEvents !== "none" && cs(trigger.querySelector("svg")).display !== "none", id + ": Made list trigger stays clickable");
+      if (rundown && team !== "always-hide") log(parseFloat(cs(rundown).marginTop) < 3, id + ": the team list sits close under the Made list");
+      const rows = [...made.querySelectorAll("tr")];
+      if (madeOpen) log(rows.length === count, id + ": one row per thing (" + rows.length + " of " + count + ")");
+      if (rows.length) {
+        const cells = rows.flatMap((tr) => [...tr.children]), phone = laneOf(sec) < 480;
+        log(cells.every((c) => +cs(c).fontWeight === 400 && cs(c).textOverflow === "clip"), id + ": nothing bold or cut off in the Made list");
+        log(cs(made.querySelector("[data-ctl]")).display === "none", id + ": Made table controls hidden");
+        const kinds = rows.map((tr) => tr.children[0].textContent.trim()).filter(Boolean);
+        const ORDER = ["Pages", "Audio", "Video", "Visuals", "Images", "Documents"];
+        log(kinds.length === new Set(kinds).size && kinds.every((k) => ORDER.includes(k)) && kinds.every((k, i) => !i || ORDER.indexOf(k) > ORDER.indexOf(kinds[i - 1])), id + ": each kind is named once, in order (" + kinds.join(", ") + ")");
+        log(rows.every((tr) => tr.children[1].querySelector("a[href]")), id + ": every name is its link");
+        const b = (el) => el.getBoundingClientRect(), right = b(sec).right;
+        log(cells.every((c) => b(c).right <= right + 1) && made.querySelector("[data-slot=scroll-area-viewport]").scrollWidth <= made.querySelector("[data-slot=scroll-area-viewport]").clientWidth + 1, id + ": the Made list fits the lane");
+        if (phone) log(rows.every((tr) => b(tr.children[2]).top >= b(tr.children[1]).bottom - 1 && Math.abs(b(tr.children[2]).left + parseFloat(cs(tr.children[2]).paddingLeft) - b(tr.children[1]).left) < 1), id + ": in a narrow lane each note drops under its name, in line with it");
+        else log(rows.every((tr) => Math.abs(b(tr.children[2]).top - b(tr.children[1]).top) < 1 && cs(tr.children[2]).whiteSpace === "nowrap" && b(tr.children[2]).height < 26), id + ": in a wide lane each note stays on its name's line");
+        const mac = [...made.querySelectorAll("[itemprop~=mac-only]")];
+        log(mac.length > 0 && mac.every((m) => (cs(m).display === "none") === macApp), id + ": Mac only shows unless the Mac app is confirmed");
+      }
+    }
+    if (team === "always-hide" && madeMode !== "hide" && !nocss) log(cs(made).display !== "none", id + ": hiding the team list leaves the Made list");
+  } else if (sec.hasAttribute("data-made")) log(false, id + ": Made list found under the card");
+  else log(!md.querySelector("[itemprop~=made]"), id + ": no Made list where nothing was made");
+
   if (rundown) {
     const trigger = rundown.querySelector("[data-markdown-details-summary]");
     if (team === "always-hide") { log(cs(rundown).display === "none", id + ": always-hide hides the team list"); }
@@ -301,17 +361,17 @@ for (const sec of document.querySelectorAll("section")) {
   if (pipeCell) log(pipeCell.textContent.includes(".acts | length"), id + ": escaped pipe shows as | in its cell");
 
   let worst = 99, bad = [];
-  for (const el of [...card.querySelectorAll("th, td, [itemprop], ins, strong"), ...(rundown && team !== "always-hide" ? rundown.querySelectorAll("th, td, button span, [itemprop]") : []), sub].filter(Boolean)) {
+  for (const el of [...card.querySelectorAll("th, td, [itemprop], ins, strong"), ...(rundown && team !== "always-hide" ? rundown.querySelectorAll("th, td, button span, [itemprop]") : []), ...(made && madeMode !== "hide" ? made.querySelectorAll("th, td, a, button span, [itemprop]") : []), sub].filter(Boolean)) {
     if (!el.offsetParent || !el.textContent.trim()) continue;
     const r = contrast(el); worst = Math.min(worst, r); if (r < 4.5) bad.push(r.toFixed(2) + " " + el.textContent.slice(0, 30));
   }
   log(!bad.length, id + ": contrast >= 4.5:1 (worst " + worst.toFixed(2) + ")" + (bad.length ? " " + bad.join("; ") : ""));
 }
-out.push((fails ? fails + " FAILED" : "ALL PASSED") + " (" + (document.documentElement.classList.contains("dark") ? "dark" : "light") + ", " + innerWidth + "px, lane " + Math.round(laneOf(document.querySelector("section"))) + "px" + (team ? ", team " + team : "") + (nocss ? ", no add-ons" : "") + ")");
+out.push((fails ? fails + " FAILED" : "ALL PASSED") + " (" + (document.documentElement.classList.contains("dark") ? "dark" : "light") + ", " + innerWidth + "px, lane " + Math.round(laneOf(document.querySelector("section"))) + "px" + (team ? ", team " + team : "") + (madeMode ? ", made " + madeMode : "") + (macApp ? ", mac app" : "") + (madeOpen ? ", made open" : "") + (nocss ? ", no add-ons" : "") + ")");
 const pre = document.createElement("pre"); pre.id = "results"; pre.textContent = out.join("\n"); pre.style.display = "none"; document.body.append(pre);
 `;
 
-const page = (fold) => `<!doctype html><html><head><meta charset="utf-8"><title>footer test</title>
+const page = (fold, madeOpen) => `<!doctype html><html><head><meta charset="utf-8"><title>footer test</title>
 <script>if (location.hash.includes("dark")) document.documentElement.classList.add("dark");</script>
 <style>${fs.readFileSync(t3cssPath, "utf8")}</style>
 <style>body{background:var(--background);color:var(--foreground);font-family:var(--font-sans,system-ui);margin:0;padding:16px} section{max-width:var(--lane,720px);margin:0 auto 28px;} h2{font:600 11px/1 ui-monospace,monospace;color:var(--muted-foreground);margin:0 0 6px}
@@ -323,7 +383,9 @@ const page = (fold) => `<!doctype html><html><head><meta charset="utf-8"><title>
 <script>{ const m = location.hash.match(/lane-(\\d+)/); if (m) document.documentElement.style.setProperty("--lane", m[1] + "px"); }</script>
 <style id="footer-css">${fs.readFileSync(footerCssPath, "utf8")}</style>
 <script>if (location.hash.includes("nocss")) document.getElementById("footer-css").remove();</script>
-</head><body${fold ? ' data-folded=""' : ""}>${html(fold)}<script>${checks}</script></body></html>`;
-fs.writeFileSync(outPath, page(false));
-fs.writeFileSync(outPath.replace(/\.html$/, "-folded.html"), page(true));
-console.log("wrote", outPath, "and the folded copy");
+</head><body${fold ? ' data-folded=""' : ""}${madeOpen ? ' data-made-open=""' : ""}>${html(fold, madeOpen)}<script>${checks}</script></body></html>`;
+// three pages: as written (team open, Made folded); team folded with Made open; both open
+fs.writeFileSync(outPath, page(false, false));
+fs.writeFileSync(outPath.replace(/\.html$/, "-folded.html"), page(true, true));
+fs.writeFileSync(outPath.replace(/\.html$/, "-made-open.html"), page(false, true));
+console.log("wrote", outPath, "with its folded and made-open copies");
