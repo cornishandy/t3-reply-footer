@@ -67,6 +67,8 @@ It needs Node 20+ and Chrome. Set `CHROME=/path/to/chrome` if it isn't found.
 - [x] Phone layout (who-and-when drops under the step), keyed to the chat lane's width
 - [x] Reply tables wrap to fit the chat pane, and a table that scrolls shows its scrollbar
 - [x] Made so far list under the card (12 Nov 2026): one thing per row, grouped by kind, written folded
+- [x] Needs you rows in red, and a Threads row linking the previous and next handover thread (13 Nov 2026)
+- [x] One darker amber for overdue words, readable on every band (13 Nov 2026)
 - [ ] A native user-stylesheet hook in T3, so no loader is needed
 
 ## License

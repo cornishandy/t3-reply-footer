@@ -82,6 +82,10 @@ const WIDE = "| File | Before | After | Change | Owner | Notes |\n|---|---|---|-
 const MADELONG = fs.readFileSync(new URL("./fixtures/made-long.md", import.meta.url), "utf8");
 // a thread's first thing: a one-row list (one visual), under the same quiet card
 const MADEONE = fs.readFileSync(new URL("./fixtures/made-one.md", import.meta.url), "utf8");
+// a handover reply (Andy, 13 Nov 2026: "list somewhere with links to the previous and any next handover thread"):
+// Saved usage, Decided for you and a last Threads row together, so the label column must still fit "Decided for you"
+// It also carries an overdue time on a blue Running row (40 real footers did), which the contrast check now covers
+const THREADS = fs.readFileSync(new URL("./fixtures/threads-last.md", import.meta.url), "utf8");
 const cases = [
   { id: "quiet", kind: "footer", md: body + quiet },
   { id: "busy", kind: "footer", timed: true, team: true, made: 3, md: body + "<details open><summary>Body details beside footer</summary>\n\nBody disclosure stays open.\n\n</details>\n\n" + busy },
@@ -89,6 +93,7 @@ const cases = [
   { id: "made-long", kind: "footer", made: 14, md: body + MADELONG },
   { id: "made-direct-sub", kind: "footer", made: 14, md: body + MADELONG.replace("</details>\n\n<sub>", "</details>\n<sub>") },
   { id: "made-one", kind: "footer", made: 1, md: body + MADEONE },
+  { id: "threads-last", kind: "footer", timed: true, md: body + THREADS },
   { id: "long-token", kind: "footer", md: body + longStep },
   { id: "long-meta", kind: "footer", team: true, md: body + LONGMETA },
   { id: "direct-sub", kind: "footer", timed: true, team: true, made: 3, md: body + directSub },
@@ -260,12 +265,40 @@ for (const sec of document.querySelectorAll("section")) {
     log(+cs(s).fontWeight >= 600, id + ": item topic bold (" + s.textContent + ")");
     log(tinted(s.closest("tr")), id + ": needs-you row tinted");
   }
+  // Needs you rows, ordinary and folded (Andy, 13 Nov 2026: "Needs You text should be in red"; the team's pick): the
+  // label in red, a red bar and a red tint; the topic keeps the text colour
+  const needsYou = rows.filter((tr) => tr.querySelector(":scope > td:nth-child(2) > strong:first-child, :scope > td:nth-child(2) > div:first-child > [data-markdown-details] > [data-markdown-details-summary] strong:first-child"));
+  for (const tr of needsYou) {
+    const shadow = cs(tr).boxShadow !== "none" ? cs(tr).boxShadow : cs(tr.children[0]).boxShadow, bar = (shadow.match(/(?:rgba?|color|oklch|oklab|lch|lab)\([^)]*\)/) || ["transparent"])[0];
+    const band = clear(cs(tr).backgroundColor) ? cs(tr.children[1]).backgroundColor : cs(tr).backgroundColor;
+    if (tr.children[0].textContent.trim()) log(isRed(cs(tr.children[0]).color), id + ": Needs you label in red");
+    const asRgb = (c) => "rgb(" + parse(c).slice(0, 3).join(", ") + ")";
+    log(isRed(asRgb(bar)) && isRed(asRgb(band)), id + ": Needs you row has a red bar and a red tint (" + bar + "; " + band + ")");
+    log(!isRed(cs(tr.querySelector("strong")).color), id + ": Needs you topic keeps the text colour");
+  }
   if (sec.hasAttribute("data-folds")) {
     const first = rows.find((tr) => tr.children[0].textContent.trim() === "Needs you");
-    log(!!first && cs(first.children[0]).color === cs(first.children[1].querySelector("strong")).color, id + ": Needs you label at full strength");
+    log(!!first && isRed(cs(first.children[0]).color) && !isRed(cs(first.children[1].querySelector("strong")).color), id + ": Needs you label in red, the item's topic not");
     const items = rows.filter((tr) => tr.querySelector(":scope > td:nth-child(2) > div > [data-markdown-details]"));
     const isClosed = (tr) => !tr.querySelector("[data-markdown-details-open=true]");
     log(items.every((tr, i) => i === 0 || !isClosed(tr) || !isClosed(items[i - 1]) || tr.getBoundingClientRect().top - items[i - 1].getBoundingClientRect().bottom <= 1), id + ": folded items sit close together");
+  }
+  // the Threads row: last, linking its neighbours, never quiet like Decided for you
+  for (const t of card.querySelectorAll("tbody [itemprop~=threads]")) {
+    const tr = t.closest("tr");
+    log(tr === rows[rows.length - 1], id + ": Threads row is the last row");
+    log(/^(Previous: .+?)?( · )?(Next: .+)?$/.test(t.textContent.trim()) && t.querySelectorAll("a").length >= 1 && [...t.querySelectorAll("a")].every((a) => a.textContent.trim()), id + ": Threads row names its neighbours as links");
+    const quiet = card.querySelector("tbody tr:has(> td:last-child:empty):not(:has(strong, del, [itemprop])) td:nth-child(2)"), time = rows.find((r) => r.children[0].textContent.trim() === "Time");
+    log((!time || cs(tr.children[1]).color === cs(time.children[1]).color) && (!quiet || cs(tr.children[1]).color !== cs(quiet).color), id + ": Threads row not quiet");
+  }
+  // one label width per card (footer.css: 5.1em, 6.3em with Saved usage, 7.9em with Decided for you, which is the last
+  // row or the row before a last Threads row); phones fix labels at 4.9rem, so this is checked in wider lanes only
+  if (!phone && rows.length) {
+    const last = rows[rows.length - 1], lastIsThreads = !!last.querySelector("[itemprop~=threads]"), before = rows[rows.length - 2];
+    const decided = lastIsThreads ? !!before && !before.children[2].textContent.trim() : !last.children[2].textContent.trim();
+    const want = decided ? 7.9 : card.querySelector("tbody [itemprop~=saved]") ? 6.3 : 5.1;
+    const td = rows[0].children[0], em = (parseFloat(cs(td).minWidth) - parseFloat(cs(document.documentElement).fontSize)) / parseFloat(cs(td).fontSize);
+    log(Math.abs(em - want) < 0.06, id + ": label column " + want + "em (" + em.toFixed(2) + "em)");
   }
   for (const sv of card.querySelectorAll("tbody [itemprop~=saved]")) {
     const tr = sv.closest("tr");
@@ -278,7 +311,7 @@ for (const sec of document.querySelectorAll("section")) {
   if (sec.hasAttribute("data-timed")) {
     const time = rows.find((tr) => tr.children[0].textContent.trim() === "Time");
     log(!!time && /(so far|in all) since you asked at \d/.test(time.children[1].textContent) && /planned .* · (expect|\d+ over|\d+ under|on plan)/.test(time.children[2].textContent), id + ": Time row: so far / in all since you asked, against the plan");
-    log(time && rows.slice(rows.indexOf(time) + 1).every((tr) => ["", "Usage", "Saved usage", "Decided for you"].includes(tr.children[0].textContent.trim()) && !tr.querySelector("del, [itemprop~=running], strong")), id + ": Time row after the plan, before Usage, Saved usage and Decided for you");
+    log(time && rows.slice(rows.indexOf(time) + 1).every((tr) => ["", "Usage", "Saved usage", "Decided for you", "Threads"].includes(tr.children[0].textContent.trim()) && !tr.querySelector("del, [itemprop~=running], strong")), id + ": Time row after the plan, before Usage, Saved usage and Decided for you");
   }
   const metaCells = rows.map((tr) => tr.children[2]).filter((td) => td.textContent.trim());
   for (const m of metaCells) log(cs(m).textAlign === (phone ? "left" : "right"), id + ": who-and-when aligned " + (phone ? "left on phones" : "right"));
