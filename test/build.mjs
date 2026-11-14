@@ -332,7 +332,10 @@ for (const sec of document.querySelectorAll("section")) {
         if (phone) log(rows.every((tr) => b(tr.children[2]).top >= b(tr.children[1]).bottom - 1 && Math.abs(b(tr.children[2]).left + parseFloat(cs(tr.children[2]).paddingLeft) - b(tr.children[1]).left) < 1), id + ": in a narrow lane each note drops under its name, in line with it");
         else log(rows.every((tr) => Math.abs(b(tr.children[2]).top - b(tr.children[1]).top) < 1 && cs(tr.children[2]).whiteSpace === "nowrap" && b(tr.children[2]).height < 26), id + ": in a wide lane each note stays on its name's line");
         const mac = [...made.querySelectorAll("[itemprop~=mac-only]")];
-        log(mac.length > 0 && mac.every((m) => (cs(m).display === "none") === macApp), id + ": Mac only shows unless the Mac app is confirmed");
+        // A note starts with Mac only (a local file) or with its phone-page link (RULES.md, On his phone).
+        const phoneNotes = rows.filter((tr) => { const a = tr.children[2].querySelector("a[href]"); return a && a.textContent.trim() === "phone page"; });
+        log(mac.length + phoneNotes.length > 0 && mac.every((m) => (cs(m).display === "none") === macApp), id + ": Mac only shows unless the Mac app is confirmed");
+        if (phoneNotes.length) log(phoneNotes.every((tr) => cs(tr.children[2].querySelector("a[href]")).display !== "none"), id + ": a phone-page note shows its link");
       }
     }
     if (team === "always-hide" && madeMode !== "hide" && !nocss) log(cs(made).display !== "none", id + ": hiding the team list leaves the Made list");
