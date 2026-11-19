@@ -9,8 +9,8 @@
 | Next | Publish the page | Opus · ~5 min |
 |   | Check it on a phone | Astra · ~10 min |
 | Time | 1 h 5 min so far since you asked at 8:58 PM; about 20 more once you answer | <span itemprop="over">planned ~45 min · expect ~1 h 25</span> |
-| Usage | ~8 five-hour points (~1.3 week points) expected at the default efforts (baseline); about 7 so far, this thread only | week 56% · refills Sun 4:00 PM |
-| Saved usage | <span itemprop="saved">No second review of the page copy</span> (T1 Trim): a small risk a wording slip gets through (my judgment) | ~1 Claude point |
+| Usage | ~1.3 week points expected at the default efforts (baseline); about 1.2 so far, this thread only | week 56% used · resets Sun 4:00 PM |
+| Saved usage | <span itemprop="saved">No second review of the page copy</span> (T1 Trim): a small risk a wording slip gets through (my judgment) | ~0.2 week points |
 | Decided for you | Chapters follow the film's acts; ask and I'll split them by scene. |   |
 | Threads | <span itemprop="threads">Previous: [Movie podcast episode (4)](t3-thread://v2/env/thread-4) · Next: [Movie podcast episode (6)](t3-thread://v2/env/thread-6)</span> |   |
 
