@@ -24,6 +24,9 @@ for v in "footer-test light 760" "footer-test dark 760" "footer-test light 390" 
          "footer-test light-team-always-show 760" "footer-test dark-team-always-hide 760" "footer-test-folded light 760" "footer-test-folded dark 390" \
          "footer-test-made-open light 760" "footer-test-made-open dark 390" "footer-test-made-open light-lane-380 640" "footer-test-made-open dark-mac-app 760" \
          "footer-test-made-open light-mac-app 390" "footer-test-made-open light-team-always-hide 760" "footer-test-made-open dark-made-always-open 760" \
+         "footer-test-made-open light-made-badges-dots 760" "footer-test-made-open dark-made-badges-dots 760" \
+         "footer-test-made-open light-made-badges-plain 760" "footer-test-made-open dark-made-badges-plain 760" \
+         "footer-test-made-open light-made-group-day 760" "footer-test-made-open dark-made-group-day 390" \
          "footer-test light-made-hide 760" "footer-test-made-open light-nocss 360"; do
   set -- $v
   out="$("$CH" --headless --disable-gpu --hide-scrollbars --window-size="$3,3000" --virtual-time-budget=3000 --dump-dom "file://$T/$1.html#$2" 2>/dev/null \

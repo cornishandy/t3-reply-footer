@@ -199,12 +199,21 @@ html[data-t3x-footer-team="always-hide"] :is(.chat-markdown > hr:last-of-type + 
 html[data-t3x-footer-team="always-show"] :is(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"])) + div:has(> [data-markdown-details]):not(:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"])) [data-markdown-details-summary] { pointer-events: none; cursor: default; }
 html[data-t3x-footer-team="always-show"] :is(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)), .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"])) + div:has(> [data-markdown-details]):not(:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"])) [data-markdown-details-summary] > svg { display: none; }
 
-/* the Made so far list (Andy, 12 Nov 2026): one thing per row, the kind on the first row of its group, the name as the
- * link, then a note that stays on one line. Agents write it folded; the ✦ panel's switch sets
- * html[data-t3x-footer-made]: start-folded, open-short (default: the add-on opens a list of five or fewer on the newest
- * reply in a wide lane), always-open (CSS blocks pointer clicks and hides the chevron; the add-on keeps it open),
- * hide. "Mac only" words are hidden once the add-on has confirmed the Mac app (html[data-t3x-mac-app]). */
+/* the Made so far list (Andy, 12 Nov 2026; redesigned 20 Nov 2026):
+ * Legacy 12 Nov lists (no itemprop="made-pill") keep their grouped 3-column layout untouched.
+ * Redesigned v4 lists (scoped via table:has([itemprop~="made-pill"])) are flat newest-first with fixed-width
+ * color-coded type pills, title + brief description in col 2, date & time right-aligned in col 3, teal tailnet
+ * badge on primary .ts.net links (explicit itemprop="made-tailnet" or hostname-parsed data-t3x-tailnet), optional
+ * badge styles (html[data-t3x-footer-made-badges="dots"|"plain"]) and day grouping (html[data-t3x-footer-made-group="day"]).
+ * Agents write it folded; the ✦ panel's switch sets html[data-t3x-footer-made]: start-folded, open-short (default),
+ * always-open, hide. "Mac only" words are hidden once the add-on has confirmed the Mac app (html[data-t3x-mac-app]). */
 .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) {
+  --t3f-pill-visual: #6d28d9;
+  --t3f-pill-page: #1d4ed8;
+  --t3f-pill-link: #b45309;
+  --t3f-pill-media: #be185d;
+  --t3f-pill-doc: #475569;
+  --t3f-tailnet: #0f766e;
   margin: .45rem 0 0;
   border: 0;
   font-size: .75rem;
@@ -217,10 +226,12 @@ html[data-t3x-footer-team="always-show"] :is(.chat-markdown > hr:last-of-type + 
     line-height: 1.25rem;
     font-weight: 400;
     color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
   }
   & [data-markdown-details-summary] > svg { width: .875rem; height: .875rem; }
   & [data-markdown-details-content] { padding: .15rem 0 .1rem 1.15rem; color: var(--muted-foreground); }
   & .chat-markdown-table-container { margin: 0; width: fit-content; max-width: 100%; }
+  & .chat-markdown-table-container:has([itemprop~="made-pill"]) { width: 100%; }
   & .chat-markdown-table-container > :not(:first-child) { display: none; }
   & table { min-width: 0; font-size: .75rem; }
   & [data-markdown-details-summary] [itemprop~="made"] { color: var(--foreground); }
@@ -228,6 +239,136 @@ html[data-t3x-footer-team="always-show"] :is(.chat-markdown > hr:last-of-type + 
   & :is(th, td):nth-child(2) { color: var(--foreground); }
   & :is(th, td):nth-child(2) a { font-size: .8125rem; }
   & :is(th, td):nth-child(3) { white-space: nowrap; }
+
+  /* v4 flat chronological table (covers BOTH thead/th Row 1 AND tbody/td Rows 2..N identically) */
+  & table:has([itemprop~="made-pill"]) {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    & :is(thead, tbody) tr:not(.t3x-made-day):hover :is(th, td),
+    & :is(thead, tbody) tr:not(.t3x-made-day).t3x-made-hover :is(th, td) {
+      background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    }
+    & :is(th, td) {
+      padding: .3125rem .375rem;
+      vertical-align: top;
+      text-align: left;
+      font-weight: 400;
+      line-height: 1.35;
+      border: 0;
+      background: transparent;
+    }
+    & :is(thead, tbody) tr:not(.t3x-made-day) :is(th, td):first-child { border-radius: .375rem 0 0 .375rem; }
+    & :is(thead, tbody) tr:not(.t3x-made-day) :is(th, td):last-child { border-radius: 0 .375rem .375rem 0; }
+    & :is(th, td):nth-child(1) { width: 1%; white-space: nowrap; padding-left: .375rem; padding-right: .5rem; }
+    & :is(th, td):nth-child(2) { min-width: 0; padding-right: .625rem; color: var(--foreground); font-size: .8125rem; }
+    & :is(th, td):nth-child(2) > a { font-size: .8125rem; font-weight: 500; text-decoration: none; }
+    & :is(th, td):nth-child(2) > a:hover { text-decoration: underline; }
+    & :is(th, td):nth-child(3) { width: 1%; white-space: nowrap; text-align: right; padding-right: .375rem; }
+    & [itemprop~="made-pill"] {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.9rem;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 16px;
+      letter-spacing: .01em;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    & [itemprop~="made-visual"] {
+      --t3f-dot: var(--t3f-pill-visual);
+      background: color-mix(in srgb, var(--t3f-pill-visual) 13%, transparent);
+      border-color: color-mix(in srgb, var(--t3f-pill-visual) 34%, transparent);
+      color: color-mix(in srgb, var(--t3f-pill-visual) 62%, var(--foreground));
+    }
+    & [itemprop~="made-page"] {
+      --t3f-dot: var(--t3f-pill-page);
+      background: color-mix(in srgb, var(--t3f-pill-page) 13%, transparent);
+      border-color: color-mix(in srgb, var(--t3f-pill-page) 34%, transparent);
+      color: color-mix(in srgb, var(--t3f-pill-page) 62%, var(--foreground));
+    }
+    & [itemprop~="made-link"] {
+      --t3f-dot: var(--t3f-pill-link);
+      background: color-mix(in srgb, var(--t3f-pill-link) 13%, transparent);
+      border-color: color-mix(in srgb, var(--t3f-pill-link) 34%, transparent);
+      color: color-mix(in srgb, var(--t3f-pill-link) 62%, var(--foreground));
+    }
+    & [itemprop~="made-media"] {
+      --t3f-dot: var(--t3f-pill-media);
+      background: color-mix(in srgb, var(--t3f-pill-media) 13%, transparent);
+      border-color: color-mix(in srgb, var(--t3f-pill-media) 34%, transparent);
+      color: color-mix(in srgb, var(--t3f-pill-media) 62%, var(--foreground));
+    }
+    & [itemprop~="made-doc"] {
+      --t3f-dot: var(--t3f-pill-doc);
+      background: color-mix(in srgb, var(--t3f-pill-doc) 15%, transparent);
+      border-color: color-mix(in srgb, var(--t3f-pill-doc) 38%, transparent);
+      color: color-mix(in srgb, var(--t3f-pill-doc) 55%, var(--foreground));
+    }
+    & [itemprop~="made-tailnet"],
+    & :is(th, td):nth-child(2) > a[data-t3x-tailnet]:not(:has(+ [itemprop~="made-tailnet"]))::after {
+      content: "tailnet";
+      display: inline-block;
+      margin-left: 6px;
+      padding: 0 5px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 15px;
+      vertical-align: 1px;
+      text-decoration: none;
+      background: color-mix(in srgb, var(--t3f-tailnet) 14%, transparent);
+      border: 1px solid color-mix(in srgb, var(--t3f-tailnet) 36%, transparent);
+      color: color-mix(in srgb, var(--t3f-tailnet) 62%, var(--foreground));
+    }
+    & [itemprop~="made-tailnet"] { content: normal; }
+    & [itemprop="made-desc"] {
+      display: inline-block;
+      margin-top: 1px;
+      color: color-mix(in srgb, var(--muted-foreground) 82%, var(--foreground));
+      font-size: .71875rem;
+      line-height: 1.4;
+    }
+    & [itemprop="made-desc"] a {
+      color: color-mix(in srgb, var(--t3f-tailnet) 62%, var(--foreground));
+      text-decoration: none;
+      font-weight: 500;
+      font-size: inherit;
+    }
+    & [itemprop="made-desc"] a:hover { text-decoration: underline; }
+    & [itemprop="made-when"] {
+      font-size: .71875rem;
+      color: color-mix(in srgb, var(--muted-foreground) 82%, var(--foreground));
+      white-space: nowrap;
+    }
+    & tr.t3x-made-day :is(th, td) {
+      padding: .5rem .375rem .15rem;
+      font-size: .6875rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: color-mix(in srgb, var(--muted-foreground) 82%, var(--foreground));
+      text-align: left;
+      width: auto;
+      border-radius: 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+      background: transparent;
+    }
+    & thead tr.t3x-made-day:first-child :is(th, td) { padding-top: .15rem; }
+  }
+}
+.dark .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) {
+  --t3f-pill-visual: #c4b5fd;
+  --t3f-pill-page: #93c5fd;
+  --t3f-pill-link: #fcd34d;
+  --t3f-pill-media: #f9a8d4;
+  --t3f-pill-doc: #cbd5e1;
+  --t3f-tailnet: #5eead4;
 }
 /* with a Made fold above it, the team rundown sits close */
 .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) + div:has(> [data-markdown-details]):not(:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"])) { margin-top: .1rem; }
@@ -236,6 +377,39 @@ html[data-t3x-footer-made="hide"] .chat-markdown > hr:last-of-type + .chat-markd
 html[data-t3x-footer-made="always-open"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) [data-markdown-details-summary] { pointer-events: none; cursor: default; }
 html[data-t3x-footer-made="always-open"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) [data-markdown-details-summary] > svg { display: none; }
 html[data-t3x-mac-app] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) [itemprop~="mac-only"] { display: none; }
+html[data-t3x-footer-made-badges="dots"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) table:has([itemprop~="made-pill"]) [itemprop~="made-pill"] {
+  background: transparent;
+  border-color: transparent;
+  padding-inline: 0;
+  justify-content: flex-start;
+  gap: .35rem;
+  color: var(--foreground);
+  font-weight: 500;
+  &::before {
+    content: "";
+    display: inline-block;
+    width: .45rem;
+    height: .45rem;
+    border-radius: 2px;
+    background: var(--t3f-dot, var(--muted-foreground));
+    flex: 0 0 auto;
+  }
+}
+html[data-t3x-footer-made-badges="plain"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) table:has([itemprop~="made-pill"]) [itemprop~="made-pill"] {
+  background: transparent;
+  border-color: transparent;
+  padding-inline: 0;
+  justify-content: flex-start;
+  color: color-mix(in srgb, var(--muted-foreground) 82%, var(--foreground));
+  font-weight: 500;
+}
+html[data-t3x-footer-made-group="day"] .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) table:has([itemprop~="made-pill"]) [itemprop="made-when"][data-t3x-clock] {
+  font-size: 0;
+  &::after {
+    content: attr(data-t3x-clock);
+    font-size: .71875rem;
+  }
+}
 
 /* the small line, right after the card or after the last fold (a bare <sub> when the blank line before it was left out) */
 :is(.chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)),
@@ -270,15 +444,63 @@ html[data-t3x-mac-app] .chat-markdown > hr:last-of-type + .chat-markdown-table-c
   }
 }
 
-/* the Made so far list in a narrow lane: the note drops under the name, in line with it */
+/* the Made so far list in a narrow lane: legacy drops the note under the name; v4 uses a 2-band grid (pill + date on Band 1, full-width title + description on Band 2) */
 @container t3x-lane (width < 30rem) {
   .chat-markdown > hr:last-of-type + .chat-markdown-table-container:has([itemprop~="settle-yes"], [itemprop~="settle-no"]):has(thead th:nth-child(3)) + div:has(> [data-markdown-details] > [data-markdown-details-summary] [itemprop~="made"]) {
     & .chat-markdown-table-container { width: 100%; }
+    & [data-markdown-details-content]:has([itemprop~="made-pill"]) { padding-left: .5rem; }
     & :is(table, thead, tbody) { display: block; width: 100%; }
     & tr { display: flex; flex-wrap: wrap; }
     & :is(th, td):first-child { flex: 0 0 3.7rem; padding-right: 0; }
     & :is(th, td):nth-child(2) { flex: 1 1 0; min-width: 0; padding-right: 0; }
     & :is(th, td):nth-child(3) { flex: 1 0 100%; padding: 0 0 .3rem 3.7rem; white-space: normal; }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day) {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      row-gap: .1875rem;
+      padding: .375rem .25rem;
+      border-radius: .375rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+    }
+    & table:has([itemprop~="made-pill"]) tbody tr:not(.t3x-made-day):last-child,
+    & table:has([itemprop~="made-pill"]):not(:has(tbody tr:not(.t3x-made-day))) thead tr:not(.t3x-made-day):last-child { border-bottom: 0; }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day):hover,
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day).t3x-made-hover {
+      background: color-mix(in srgb, var(--foreground) 5%, transparent);
+    }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day):hover :is(th, td),
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day).t3x-made-hover :is(th, td) {
+      background: transparent;
+    }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day) :is(th, td) {
+      padding: 0;
+      border-radius: 0;
+      width: auto;
+      flex: none;
+    }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day) :is(th, td):nth-child(1) {
+      grid-column: 1;
+      grid-row: 1;
+      align-self: center;
+      padding-right: .5rem;
+    }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day) :is(th, td):nth-child(3) {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: center;
+      justify-self: end;
+      text-align: right;
+      padding: 0;
+      white-space: nowrap;
+    }
+    & table:has([itemprop~="made-pill"]) :is(thead, tbody) tr:not(.t3x-made-day) :is(th, td):nth-child(2) {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      padding-top: .125rem;
+      padding-right: 0;
+    }
+    & table:has([itemprop~="made-pill"]) tr.t3x-made-day { display: block; border-bottom: 0; padding: .45rem .25rem .15rem; }
+    & table:has([itemprop~="made-pill"]) tr.t3x-made-day :is(th, td) { display: block; width: auto; flex: none; padding: 0 0 .15rem; text-align: left; }
   }
 }
 

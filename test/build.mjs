@@ -82,6 +82,11 @@ const WIDE = "| File | Before | After | Change | Owner | Notes |\n|---|---|---|-
 const MADELONG = fs.readFileSync(new URL("./fixtures/made-long.md", import.meta.url), "utf8");
 // a thread's first thing: a one-row list (one visual), under the same quiet card
 const MADEONE = fs.readFileSync(new URL("./fixtures/made-one.md", import.meta.url), "utf8");
+// v4 redesigned Made so far fixtures (20 Nov 2026): 5-item canonical (thead/th .ts.net:9780 + decoy + phone mirrors + Mac only),
+// 1-item thead-only wrapping unmarked .ts.net (fallback badge), and 1-item unlinked broken entry
+const MADEV4FIVE = fs.readFileSync(new URL("./fixtures/made-v4-five.md", import.meta.url), "utf8");
+const MADEV4ONE = fs.readFileSync(new URL("./fixtures/made-v4-one.md", import.meta.url), "utf8");
+const MADEV4UNLINKED = fs.readFileSync(new URL("./fixtures/made-v4-unlinked.md", import.meta.url), "utf8");
 // a handover reply (Andy, 13 Nov 2026: "list somewhere with links to the previous and any next handover thread"):
 // Saved usage, Decided for you and a last Threads row together, so the label column must still fit "Decided for you"
 // It also carries an overdue time on a blue Running row (40 real footers did), which the contrast check now covers
@@ -93,6 +98,9 @@ const cases = [
   { id: "made-long", kind: "footer", made: 14, md: body + MADELONG },
   { id: "made-direct-sub", kind: "footer", made: 14, md: body + MADELONG.replace("</details>\n\n<sub>", "</details>\n<sub>") },
   { id: "made-one", kind: "footer", made: 1, md: body + MADEONE },
+  { id: "made-v4-five", kind: "footer", made: 5, md: body + MADEV4FIVE },
+  { id: "made-v4-one", kind: "footer", made: 1, md: body + MADEV4ONE },
+  { id: "made-v4-unlinked", kind: "footer", made: 1, md: body + MADEV4UNLINKED },
   { id: "threads-last", kind: "footer", timed: true, md: body + THREADS },
   { id: "long-token", kind: "footer", md: body + longStep },
   { id: "long-meta", kind: "footer", team: true, md: body + LONGMETA },
@@ -139,9 +147,55 @@ const team = (H.match(/team-([a-z-]+)/) || [])[1];
 if (team) document.documentElement.setAttribute("data-t3x-footer-team", team);
 const madeMode = (H.match(/made-(hide|always-open)/) || [])[1];
 if (madeMode) document.documentElement.setAttribute("data-t3x-footer-made", madeMode);
+const madeBadges = (H.match(/made-badges-(dots|plain)/) || [])[1];
+if (madeBadges) document.documentElement.setAttribute("data-t3x-footer-made-badges", madeBadges);
+const madeGroup = (H.match(/made-group-(day)/) || [])[1];
+if (madeGroup) document.documentElement.setAttribute("data-t3x-footer-made-group", madeGroup);
 const macApp = H.includes("mac-app");
 if (macApp) document.documentElement.setAttribute("data-t3x-mac-app", "");
 const madeOpen = document.body.hasAttribute("data-made-open");
+// Simulate t3-extras hostname-parsed tailnet fallback & optional By day headers on v4 tables
+if (!nocss) {
+  for (const tbl of document.querySelectorAll('table:has([itemprop~="made-pill"])')) {
+    for (const a of tbl.querySelectorAll(':is(th, td):nth-child(2) > a')) {
+      try {
+        const u = new URL(a.getAttribute("href"), location.href);
+        if ((u.protocol === "http:" || u.protocol === "https:") && u.hostname.toLowerCase().endsWith(".ts.net")) {
+          const next = a.nextElementSibling;
+          if (!next || !(next.getAttribute("itemprop") || "").split(/\s+/).includes("made-tailnet")) {
+            a.setAttribute("data-t3x-tailnet", "1");
+          }
+        }
+      } catch {}
+    }
+    if (madeGroup === "day") {
+      let lastDay = null;
+      const itemRows = [...tbl.querySelectorAll("thead tr, tbody tr")].filter((tr) => !tr.classList.contains("t3x-made-day"));
+      for (const tr of itemRows) {
+        const when = tr.querySelector('[itemprop="made-when"]');
+        const dt = when?.getAttribute("datetime") || "";
+        const m = /^(\d{4}-\d{2}-\d{2})/.exec(dt);
+        if (!m) continue;
+        const dayKey = m[1];
+        const parts = when.textContent.split("·").map((s) => s.trim());
+        if (parts.length >= 2) {
+          when.setAttribute("data-t3x-clock", parts[parts.length - 1]);
+          when.setAttribute("title", when.textContent.trim());
+        }
+        if (dayKey !== lastDay) {
+          lastDay = dayKey;
+          const hdr = document.createElement("tr");
+          hdr.className = "t3x-made-day";
+          const cell = document.createElement(tr.parentElement.tagName === "THEAD" ? "th" : "td");
+          cell.colSpan = 3;
+          cell.textContent = parts[0] || dayKey;
+          hdr.append(cell);
+          tr.before(hdr);
+        }
+      }
+    }
+  }
+}
 const parts = (sec) => {
   const md = sec.querySelector(".chat-markdown");
   const hr = [...md.querySelectorAll(":scope > hr")].at(-1);
@@ -338,8 +392,17 @@ for (const sec of document.querySelectorAll("section")) {
   if (made) {
     const trigger = made.querySelector("[data-markdown-details-summary]"), name = trigger.querySelector("[itemprop~=made]");
     const count = +sec.dataset.made;
+    const summaryText = trigger.textContent.trim();
+    const isV4 = /^Made so far · \d+ items? · /.test(summaryText) || !!made.querySelector('[itemprop~="made-pill"]');
     log(made.previousElementSibling === card && (!rundown || rundown.previousElementSibling === made), id + ": the Made list sits right under the card, above the team list");
-    log(new RegExp("^Made so far · " + count + ": \\d+ [a-z]+(, \\d+ [a-z]+)*$").test(trigger.textContent.trim()), id + ": Made summary names the count and the kinds");
+    if (isV4) {
+      const reV4 = count === 1
+        ? new RegExp("^Made so far · 1 item · .+")
+        : new RegExp("^Made so far · " + count + " items · newest .+");
+      log(reV4.test(summaryText), id + ": v4 Made summary names the count and newest date/time (" + summaryText + ")");
+    } else {
+      log(new RegExp("^Made so far · " + count + ": \\d+ [a-z]+(, \\d+ [a-z]+)*$").test(summaryText), id + ": Made summary names the count and the kinds");
+    }
     if (nocss) { /* T3's own fold look */ }
     else if (madeMode === "hide") {
       log(cs(made).display === "none", id + ": hide hides the Made list");
@@ -350,25 +413,106 @@ for (const sec of document.querySelectorAll("section")) {
       if (madeMode === "always-open") log(cs(trigger).pointerEvents === "none" && cs(trigger.querySelector("svg")).display === "none", id + ": always-open blocks pointer clicks and hides the chevron");
       else log(cs(trigger).pointerEvents !== "none" && cs(trigger.querySelector("svg")).display !== "none", id + ": Made list trigger stays clickable");
       if (rundown && team !== "always-hide") log(parseFloat(cs(rundown).marginTop) < 3, id + ": the team list sits close under the Made list");
-      const rows = [...made.querySelectorAll("tr")];
+      const allRows = [...made.querySelectorAll("tr")];
+      const rows = allRows.filter((tr) => !tr.classList.contains("t3x-made-day"));
       if (madeOpen) log(rows.length === count, id + ": one row per thing (" + rows.length + " of " + count + ")");
       if (rows.length) {
         const cells = rows.flatMap((tr) => [...tr.children]), phone = laneOf(sec) < 480;
         log(cells.every((c) => +cs(c).fontWeight === 400 && cs(c).textOverflow === "clip"), id + ": nothing bold or cut off in the Made list");
         log(cs(made.querySelector("[data-ctl]")).display === "none", id + ": Made table controls hidden");
-        const kinds = rows.map((tr) => tr.children[0].textContent.trim()).filter(Boolean);
-        const ORDER = ["Pages", "Audio", "Video", "Visuals", "Images", "Documents"];
-        log(kinds.length === new Set(kinds).size && kinds.every((k) => ORDER.includes(k)) && kinds.every((k, i) => !i || ORDER.indexOf(k) > ORDER.indexOf(kinds[i - 1])), id + ": each kind is named once, in order (" + kinds.join(", ") + ")");
-        log(rows.every((tr) => tr.children[1].querySelector("a[href]")), id + ": every name is its link");
         const b = (el) => el.getBoundingClientRect(), right = b(sec).right;
         log(cells.every((c) => b(c).right <= right + 1) && made.querySelector("[data-slot=scroll-area-viewport]").scrollWidth <= made.querySelector("[data-slot=scroll-area-viewport]").clientWidth + 1, id + ": the Made list fits the lane");
-        if (phone) log(rows.every((tr) => b(tr.children[2]).top >= b(tr.children[1]).bottom - 1 && Math.abs(b(tr.children[2]).left + parseFloat(cs(tr.children[2]).paddingLeft) - b(tr.children[1]).left) < 1), id + ": in a narrow lane each note drops under its name, in line with it");
-        else log(rows.every((tr) => Math.abs(b(tr.children[2]).top - b(tr.children[1]).top) < 1 && cs(tr.children[2]).whiteSpace === "nowrap" && b(tr.children[2]).height < 26), id + ": in a wide lane each note stays on its name's line");
-        const mac = [...made.querySelectorAll("[itemprop~=mac-only]")];
-        // A note starts with Mac only (a local file) or with its phone-page link (RULES.md, On his phone).
-        const phoneNotes = rows.filter((tr) => { const a = tr.children[2].querySelector("a[href]"); return a && a.textContent.trim() === "phone page"; });
-        log(mac.length + phoneNotes.length > 0 && mac.every((m) => (cs(m).display === "none") === macApp), id + ": Mac only shows unless the Mac app is confirmed");
-        if (phoneNotes.length) log(phoneNotes.every((tr) => cs(tr.children[2].querySelector("a[href]")).display !== "none"), id + ": a phone-page note shows its link");
+        if (isV4) {
+          const PILL_LABELS = ["Visual", "Page", "Link", "Audio", "Image", "Video", "Doc"];
+          log(rows.every((tr) => {
+            const p = tr.children[0].querySelector('[itemprop~="made-pill"]');
+            return p && PILL_LABELS.includes(p.textContent.trim());
+          }), id + ": every v4 row has a valid type pill");
+          log(rows.every((tr) => {
+            const w = tr.children[2].querySelector('[itemprop="made-when"][datetime]');
+            return w && w.textContent.includes("·");
+          }), id + ": every v4 row has a datetime timestamp with · separator");
+          if (phone) {
+            log(rows.every((tr) => {
+              const r1 = b(tr.children[0]), r2 = b(tr.children[1]), r3 = b(tr.children[2]);
+              return Math.abs(r1.top - r3.top) < 10 && r2.top >= Math.min(r1.bottom, r3.bottom) - 1 && r2.width >= b(tr).width - 14;
+            }), id + ": v4 narrow lane uses 2-band grid (pill + date on Band 1, full-width title + desc on Band 2)");
+          } else {
+            log(rows.every((tr) => Math.abs(b(tr.children[2]).top - b(tr.children[1]).top) < 2 && cs(tr.children[2]).whiteSpace === "nowrap"), id + ": v4 desktop keeps timestamp right-aligned on row top");
+          }
+          if (id === "made-v4-five") {
+            const decoy = rows[2].querySelector(':is(th, td):nth-child(2) > a');
+            log(!!decoy && !decoy.hasAttribute("data-t3x-tailnet") && !rows[2].querySelector('[itemprop~="made-tailnet"]'), id + ": public .ts.net path/query decoy gets NO tailnet badge");
+            const phoneLinks = [...made.querySelectorAll('[itemprop="made-desc"] a')];
+            log(phoneLinks.length === 2 && phoneLinks.every((a) => !a.hasAttribute("data-t3x-tailnet")), id + ": nested [phone] links get NO duplicate tailnet badge");
+            const mac = [...made.querySelectorAll("[itemprop~=mac-only]")];
+            log(mac.length === 1 && (cs(mac[0]).display === "none") === macApp, id + ": v4 Mac only shows unless the Mac app is confirmed");
+          }
+          if (id === "made-v4-one") {
+            const fbLink = rows[0].querySelector(':is(th, td):nth-child(2) > a');
+            log(!!fbLink && fbLink.hasAttribute("data-t3x-tailnet") && cs(fbLink, "::after").content === '"tailnet"', id + ": unmarked .ts.net link renders fallback tailnet badge");
+          }
+          if (id === "made-v4-unlinked") {
+            log(!rows[0].children[1].querySelector("a[href]") && rows[0].children[1].textContent.includes("Removed draft chart"), id + ": unlinked broken entry renders cleanly without a link");
+          }
+          if (madeGroup === "day" && id === "made-v4-five") {
+            const dayHeaders = [...made.querySelectorAll("tr.t3x-made-day")];
+            log(dayHeaders.length === 2, id + ": By day inserts 2 day divider rows (" + dayHeaders.length + ")");
+          }
+          // Exhaustive default + hover WCAG AA contrast audit on every v4 row (failing loudly on missing required targets)
+          const auditV4Row = (tr, reqSels) => {
+            const errs = [];
+            for (const hovered of [false, true]) {
+              tr.classList.toggle("t3x-made-hover", hovered);
+              const tag = hovered ? "hover" : "default";
+              for (const [sel, pseudo] of reqSels) {
+                const el = sel ? tr.querySelector(sel) : tr;
+                if (!el) { errs.push("MISSING(" + tag + "):" + sel); continue; }
+                if (pseudo) {
+                  const pcs = cs(el, pseudo);
+                  const pbg = over(parse(pcs.backgroundColor), bgOf(el));
+                  const pfg = over(parse(pcs.color), pbg);
+                  const [la, lb] = [L(pfg), L(pbg)].sort((x, y) => y - x);
+                  const r = (la + .05) / (lb + .05);
+                  if (pcs.content !== '"tailnet"' || r < 4.5) errs.push(r.toFixed(2) + "(" + tag + "):" + sel + pseudo);
+                } else {
+                  const r = contrast(el);
+                  if (r < 4.5) errs.push(r.toFixed(2) + "(" + tag + "):" + sel);
+                }
+              }
+            }
+            tr.classList.remove("t3x-made-hover");
+            return errs;
+          };
+          const v4Errs = [];
+          for (const tr of rows) {
+            const req = [['[itemprop~="made-pill"]', null], ['[itemprop="made-when"]', null]];
+            if (tr.querySelector(':is(th, td):nth-child(2) > a')) req.push([':is(th, td):nth-child(2) > a', null]);
+            else req.push([':is(th, td):nth-child(2)', null]);
+            if (tr.querySelector('[itemprop~="made-tailnet"]')) req.push(['[itemprop~="made-tailnet"]', null]);
+            if (tr.querySelector(':is(th, td):nth-child(2) > a[data-t3x-tailnet]')) req.push([':is(th, td):nth-child(2) > a[data-t3x-tailnet]', '::after']);
+            if (tr.querySelector('[itemprop="made-desc"]')) req.push(['[itemprop="made-desc"]', null]);
+            if (tr.querySelector('[itemprop="made-desc"] a')) req.push(['[itemprop="made-desc"] a', null]);
+            v4Errs.push(...auditV4Row(tr, req));
+          }
+          log(!v4Errs.length, id + ": v4 default+hover contrast >= 4.5:1" + (v4Errs.length ? " " + v4Errs.join("; ") : ""));
+          // Negative self-check (Astra R5): confirm missing configured target is never silently skipped
+          if (id === "made-v4-five") {
+            const neg = auditV4Row(rows[0], [['[itemprop="definitely-missing-target"]', null]]);
+            log(neg.length === 2 && neg.every((e) => e.startsWith("MISSING(")), id + ": contrast audit fails loudly on missing required targets");
+          }
+        } else {
+          const kinds = rows.map((tr) => tr.children[0].textContent.trim()).filter(Boolean);
+          const ORDER = ["Pages", "Audio", "Video", "Visuals", "Images", "Documents"];
+          log(kinds.length === new Set(kinds).size && kinds.every((k) => ORDER.includes(k)) && kinds.every((k, i) => !i || ORDER.indexOf(k) > ORDER.indexOf(kinds[i - 1])), id + ": each kind is named once, in order (" + kinds.join(", ") + ")");
+          log(rows.every((tr) => tr.children[1].querySelector("a[href]")), id + ": every name is its link");
+          if (phone) log(rows.every((tr) => b(tr.children[2]).top >= b(tr.children[1]).bottom - 1 && Math.abs(b(tr.children[2]).left + parseFloat(cs(tr.children[2]).paddingLeft) - b(tr.children[1]).left) < 1), id + ": in a narrow lane each note drops under its name, in line with it");
+          else log(rows.every((tr) => Math.abs(b(tr.children[2]).top - b(tr.children[1]).top) < 1 && cs(tr.children[2]).whiteSpace === "nowrap" && b(tr.children[2]).height < 26), id + ": in a wide lane each note stays on its name's line");
+          const mac = [...made.querySelectorAll("[itemprop~=mac-only]")];
+          const phoneNotes = rows.filter((tr) => { const a = tr.children[2].querySelector("a[href]"); return a && a.textContent.trim() === "phone page"; });
+          log(mac.length + phoneNotes.length > 0 && mac.every((m) => (cs(m).display === "none") === macApp), id + ": Mac only shows unless the Mac app is confirmed");
+          if (phoneNotes.length) log(phoneNotes.every((tr) => cs(tr.children[2].querySelector("a[href]")).display !== "none"), id + ": a phone-page note shows its link");
+        }
       }
     }
     if (team === "always-hide" && madeMode !== "hide" && !nocss) log(cs(made).display !== "none", id + ": hiding the team list leaves the Made list");
